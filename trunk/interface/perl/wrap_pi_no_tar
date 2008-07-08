@@ -6,30 +6,30 @@
 
 $numArgs = $#ARGV + 1;
 
-open PBS_SCRIPT, ”>pbs_script.pbs”;
+open PBS_SCRIPT, ">pbs_script.pbs";
 
-print PBS_SCRIPT ”#!/bin/bash -l\n”;
+print PBS_SCRIPT "#!/bin/bash -l\n";
 
-print PBS_SCRIPT ”#PBS -N job1\n”;
+print PBS_SCRIPT "#PBS -N job1\n";
 
-print PBS_SCRIPT ”#PBS -S /bin/bash\n”;
+print PBS_SCRIPT "#PBS -S /bin/bash\n";
 
-print PBS_SCRIPT ”#PBS -l $ARGV[0]\n”;
+print PBS_SCRIPT "#PBS -l $ARGV[0]\n";
 
-print PBS_SCRIPT ”#PBS -l $ARGV[1]\n”;
+print PBS_SCRIPT "#PBS -l $ARGV[1]\n";
 
-print PBS_SCRIPT ”#PBS -l $ARGV[2]\n”;
+print PBS_SCRIPT "#PBS -l $ARGV[2]\n";
 
-print PBS_SCRIPT ”#PBS -m bea\n”;
+print PBS_SCRIPT "#PBS -m bea\n";
 
-print PBS_SCRIPT ”#PBS -M sjw1\@ualberta.ca\n”;
+print PBS_SCRIPT "#PBS -M sjw1\@ualberta.ca\n";
 
-print PBS_SCRIPT “cd \$PBS_O_WORKDIR\n”;
+print PBS_SCRIPT "cd \$PBS_O_WORKDIR\n";
 
-print PBS_SCRIPT ”./$ARGV[3]<$ARGV[4]\n”;
+print PBS_SCRIPT "./$ARGV[3]<$ARGV[4]\n";
 
 close PBS_SCRIPT;
 
-system(“scp pbs_script.pbs sjw1\@cluster.srv.ualberta.ca:/scratch/sjw1/cluster/”);
+system("scp pbs_script.pbs sjw1\@cluster.srv.ualberta.ca:/scratch/sjw1/cluster/");
 
-system(“ssh cluster.srv.ualberta.ca -l sjw1 \”cd /scratch/sjw1/cluster/\n qsub pbs_script.pbs\n\””); 
+system("ssh cluster.srv.ualberta.ca -l sjw1 \"cd /scratch/sjw1/cluster/\n qsub pbs_script.pbs\n\""); 
