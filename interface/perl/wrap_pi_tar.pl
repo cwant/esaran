@@ -1,7 +1,11 @@
 #!/usr/bin/perl
-# This script creates a .pbs file, tars the pbs and input file and sends it to the cluster to be run. # pi is a C program that estimates pi based on the number of intervals which is provided in pi.input # It makes assumptions about the order of the command line arguments and has no parsing
+# This script creates a .pbs file, tars the pbs and input file and sends it to the cluster to be run.
+# pi is a C program that estimates pi based on the number of intervals which is provided in pi.input.
+# It makes assumptions about the order of the command line arguments and has no parsing.
 
-# run using perl wrap_pi_tar.pl pvmem=2gb nodes=1:ppn=1 walltime=00:01:00 pi pi.input
+# Run using: 
+#
+#   perl wrap_pi_tar.pl pvmem=2gb nodes=1:ppn=1 walltime=00:01:00 pi pi.input
 
 
 $numArgs = $#ARGV + 1;
