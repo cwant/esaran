@@ -1,10 +1,14 @@
 #!/usr/bin/perl
 
 # This script creates a condor .sub file and sends it to the cluster to be run.
-# pi is a c program that estimates pi based on the number of intervals which is provided in pi.input
-# It makes assumptions about the order of the command line arguments
+# pi is a c program that estimates pi based on the number of intervals 
+# which is provided in pi.input.
+# It makes assumptions about the order of the command
+# line arguments.
 
-# run using perl wrap_condor.pl <executable> <transfer_input_files> <output> <error> <log>
+# Run using:
+#    perl wrap_condor.pl <executable> <transfer_input_files> <output> \
+#               <error> <log>
 
 #print (++$n,": $_\n") foreach (@ARGV);
 #print(@ARGV);
