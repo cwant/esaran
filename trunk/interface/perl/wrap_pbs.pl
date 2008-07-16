@@ -37,11 +37,12 @@ print PBS_SCRIPT "#PBS -m $notify\n";
 print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
+print PBS_SCRIPT "ssh sjw1\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar pi.out pi.err; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" sjw1\@ualberta.ca'\n";
 close PBS_SCRIPT;
 
-#system("tar -cvvf script.tar *");
-#system("scp script.tar sjw1\@cluster.srv.ualberta.ca:/scratch/sjw1/pbs");
-#system("ssh cluster.srv.ualberta.ca -l sjw1 \"cd /scratch/sjw1/pbs/\n tar -xvvf script.tar\n qsub pbs_script.pbs\n\"");
+system("tar -cvvf script.tar *");
+system("scp script.tar sjw1\@cluster.srv.ualberta.ca:/scratch/sjw1/pbs");
+system("ssh cluster.srv.ualberta.ca -l sjw1 \"cd /scratch/sjw1/pbs/\n tar -xvvf script.tar\n qsub pbs_script.pbs\n\"");
 
 sub arg_error {
 	###Display errors in arguments and usage
