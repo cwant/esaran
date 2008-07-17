@@ -13,6 +13,7 @@ GetOptions(
 	"walltime|w=s"	=> \$walltime,
 	"notify|E=s"	=> \$notify,
 	"email|e=s"	=> \$email,
+	"user|u=s"	=> \$user,
 	"dir|d=s"	=> \$dir,
 	"exe|x=s"	=> \$executable,
 	"help|h"	=> \$help);
@@ -20,13 +21,14 @@ GetOptions(
 arg_error("")				if $help;
 arg_error("-x or --executable required")	if !$executable;
 arg_error("-e or --email required") if !$email;
+arg_error("-u or --user required") if !$user;
 $name = "job1"		if !$name;
 $pvmem = "512mb"	if !$pvmem;
 $nodes = 1		if !$nodes;
 $ppn = 1		if !$ppn;
 $walltime = "24:00:00"	if !$walltime;
 $notify = "bea"		if !$notify;
-$dir = "\$PBS_O_WORKDIR" if !$dir;
+$dir = "\$PBS_O_WORKDIR" if !$dir;  #what should this be??? /scratch/user/$name???
 
 open PBS_SCRIPT, ">pbs_script.pbs";
 print PBS_SCRIPT "#!/bin/bash -l\n";
@@ -39,12 +41,12 @@ print PBS_SCRIPT "#PBS -m $notify\n";
 print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
-print PBS_SCRIPT "ssh sjw1\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar pi.out pi.err; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" sjw1\@ualberta.ca'\n";
+print PBS_SCRIPT "ssh $user\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar *; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" $email'\n";
 close PBS_SCRIPT;
 
 system("tar -cvvf script.tar *");
-system("scp script.tar sjw1\@cluster.srv.ualberta.ca:/scratch/sjw1/pbs");
-system("ssh cluster.srv.ualberta.ca -l sjw1 \"cd /scratch/sjw1/pbs/\n tar -xvvf script.tar\n qsub pbs_script.pbs\n\"");
+system("scp script.tar $user\@cluster.srv.ualberta.ca:$dir");
+system("ssh cluster.srv.ualberta.ca -l $user \"cd $dir\n tar -xvvf script.tar\n\""); # qsub pbs_script.pbs\n\"");
 
 sub arg_error {
 	###Display errors in arguments and usage
@@ -66,6 +68,9 @@ Options:
 
 	-e or --email (required)
 		The email address for notifying the user of errors and completion of the program
+
+	-u or --user (required)
+		The user id used to login to the cluster
 
 	-N or --name (optional, default job1)
 		The name of the job that is submitted to the cluster
