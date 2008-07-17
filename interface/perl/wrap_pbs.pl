@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# See arg_error() below for usage.
+# wrap_pbs.pl: see arg_error() below for usage.
 
 use Getopt::Long;
 Getopt::Long::Configure("bundling");
