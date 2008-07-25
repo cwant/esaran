@@ -26,7 +26,7 @@ $nodes = 1		if !$nodes;
 $ppn = 1		if !$ppn;
 $walltime = "24:00:00"	if !$walltime;
 $notify = "bea"		if !$notify;
-$dir = "\$PBS_O_WORKDIR" if !$dir;  #what should this be??? /scratch/user/$name???
+$dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 
 open PBS_SCRIPT, ">pbs_script.pbs";
 print PBS_SCRIPT "#!/bin/bash -l\n";
@@ -99,9 +99,10 @@ END_PERL
 
 close PBS_SCRIPT;
 
-system("tar -cvvf script.tar *");
-system("scp script.tar $user\@cluster.srv.ualberta.ca:$dir");
-system("ssh cluster.srv.ualberta.ca -l $user \"cd $dir\n tar -xvvf script.tar\n\""); # qsub pbs_script.pbs\n\"");
+system("tar -cvvf $name.$$.tar *");
+system("ssh cluster.srv.ualberta.ca -l $user \"mkdir -p $dir\n\"");
+system("scp $name.$$.tar $user\@cluster.srv.ualberta.ca:$dir");
+system("ssh cluster.srv.ualberta.ca -l $user \"cd $dir\n tar -xvvf $name.$$.tar\n\""); # qsub pbs_script.pbs\n\"");
 
 sub arg_error {
 	###Display errors in arguments and usage
