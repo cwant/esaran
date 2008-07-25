@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 
-# wrap_pbs.pl: see arg_error() below for usage.
-
 use Getopt::Long;
 Getopt::Long::Configure("bundling");
 
@@ -41,7 +39,64 @@ print PBS_SCRIPT "#PBS -m $notify\n";
 print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
-print PBS_SCRIPT "ssh $user\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar *; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" $email'\n";
+print PBS_SCRIPT "zip output *\n";
+
+#now set up the mail portion of the script
+# Get the mail command for this OS
+use POSIX qw(uname);
+($systype) = (POSIX::uname())[0];
+$mail_command = "/usr/sbin/sendmail";
+if ($systype eq "IRIX64") {
+	$mail_command = "/usr/lib/sendmail";
+}
+
+#Configure mail/file
+$mail_host = "10.0.6.1";
+$mail_user = $user;
+$body = "Here is your output.";
+$to = $email;
+$file = "$dir/output.zip";
+$output = "output.zip";
+
+
+### note about below, easier but more memory intensive to do:
+###	perl -MMINME::Base64 -0777 -ne 'print encode_base64($_)' <file
+
+#hack
+$buf = '$buf';
+
+print PBS_SCRIPT << "END_PERL";
+(
+(cat <<EOF_MAIL
+To: $email
+Subject: Results from job $name
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
+
+---q1w2e3r4t5
+Content-Type: text/plain
+
+$body
+---q1w2e3r4t5
+Content-Type: application; name=$output
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="$output"
+
+EOF_MAIL
+);
+perl -e '
+use MIME::Base64 qw(encode_base64);
+open(FILE, "$file") or die "$!";
+while (read(FILE, $buf, 60*57)) {
+	print encode_base64($buf);
+}';
+echo '---q1w2e3r4t5--';
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+END_PERL
+
+
+#print PBS_SCRIPT "ssh $user\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar *; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" $email'\n";
+
 close PBS_SCRIPT;
 
 system("tar -cvvf script.tar *");
