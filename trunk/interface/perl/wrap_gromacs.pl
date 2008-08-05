@@ -136,8 +136,8 @@ Description: This program is used to create and submit .pbs files.
 Usage: perl wrap_pbs.pl [options]
 
 Options:
-	-x or --executable (required)
-		The name of the program you want to run with the required arguments for that program
+	-a or --args (required)
+		The required or usual arguments for mdrun
 
 	-e or --email (required)
 		The email address for notifying the user of errors and completion of the program
