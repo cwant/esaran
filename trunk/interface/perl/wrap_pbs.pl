@@ -52,7 +52,7 @@ print PBS_SCRIPT "  OUTPUT=${user}_${name}.zip\n";
 print PBS_SCRIPT "  JOBNAME=\"the job $name\"\n";
 print PBS_SCRIPT "  SUBJECT=\"Results from job $name\"\n";
 print PBS_SCRIPT "fi\n";
-print PBS_SCRIPT "zip -r \${OUTPUT} * > null\n";
+print PBS_SCRIPT "zip -r \${OUTPUT} * > /dev/null\n";
 
 #now set up the mail portion of the script
 # Get the mail command for this OS
