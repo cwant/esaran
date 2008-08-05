@@ -11,6 +11,7 @@ GetOptions(
 	"walltime|w=s"	=> \$walltime,
 	"notify|E=s"	=> \$notify,
 	"email|e=s"	=> \$email,
+	"host|H=s"	=> \$host,
 	"user|u=s"	=> \$user,
 	"dir|d=s"	=> \$dir,
 	"exe|x=s"	=> \$executable,
@@ -20,10 +21,12 @@ arg_error("")				if $help;
 arg_error("-x or --executable required")	if !$executable;
 arg_error("-e or --email required") if !$email;
 arg_error("-u or --user required") if !$user;
+
 $name = "job1"		if !$name;
 $pvmem = "512mb"	if !$pvmem;
 $nodes = 1		if !$nodes;
 $ppn = 1		if !$ppn;
+$host = "cluster.srv.ualberta.ca" if !$host;
 $walltime = "24:00:00"	if !$walltime;
 $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
@@ -100,9 +103,9 @@ END_PERL
 close PBS_SCRIPT;
 
 system("tar -cvvf $name.$$.tar *");
-system("ssh cluster.srv.ualberta.ca -l $user \"mkdir -p $dir\n\"");
-system("scp $name.$$.tar $user\@cluster.srv.ualberta.ca:$dir");
-system("ssh cluster.srv.ualberta.ca -l $user \"cd $dir\n tar -xvvf $name.$$.tar\n\""); # qsub pbs_script.pbs\n\"");
+system("ssh $host -l $user \"mkdir -p $dir\n\"");
+system("scp $name.$$.tar $user\@$host:$dir");
+system("ssh $host -l $user \"cd $dir\n tar -xvvf $name.$$.tar\nqsub pbs_script.pbs\n\"");
 
 sub arg_error {
 	###Display errors in arguments and usage
@@ -126,10 +129,10 @@ Options:
 		The email address for notifying the user of errors and completion of the program
 
 	-u or --user (required)
-		The user id used to login to the cluster
+		The user id used to login to the HPC resource
 
 	-N or --name (optional, default job1)
-		The name of the job that is submitted to the cluster
+		The name of the job that is submitted to the HPC resource
 
 	-m or --pvmem (optional, default = 512mb)
 		The size of memory you required to a max of 30gb
