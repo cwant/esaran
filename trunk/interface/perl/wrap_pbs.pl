@@ -42,7 +42,16 @@ print PBS_SCRIPT "#PBS -m $notify\n";
 print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
-print PBS_SCRIPT "OUTPUT=${user}_\${PBS_JOBID}.zip\n";
+print PBS_SCRIPT "if [ \"a\${PBS_JOBID}\" != \"a\" ]\n";
+print PBS_SCRIPT "then\n";
+print PBS_SCRIPT "  OUTPUT=${user}_\${PBS_JOBID}.zip\n";
+print PBS_SCRIPT "  JOBNAME=\"PBS job \${PBS_JOBID}\"\n";
+print PBS_SCRIPT "  SUBJECT=\"Results from job $name (\${JOBNAME})\"\n";
+print PBS_SCRIPT "else\n";
+print PBS_SCRIPT "  OUTPUT=${user}_${name}.zip\n";
+print PBS_SCRIPT "  JOBNAME=\"the job $name\"\n";
+print PBS_SCRIPT "  SUBJECT=\"Results from job $name\"\n";
+print PBS_SCRIPT "fi\n";
 print PBS_SCRIPT "zip -r \${OUTPUT} *\n";
 
 #now set up the mail portion of the script
@@ -57,7 +66,7 @@ if ($systype eq "IRIX64") {
 #Configure mail/file
 $mail_host = "10.0.6.1";
 $mail_user = $user;
-$body = "Here is the output from PBS job \${PBS_JOBID}.";
+$body = "Here is the output from \${JOBNAME}.";
 $to = $email;
 $file = "$dir/\${OUTPUT}";
 $output = "\${OUTPUT}";
@@ -68,13 +77,13 @@ $output = "\${OUTPUT}";
 
 #hack
 $buf = '$buf';
-$jobid = '${PBS_JOBID}';
+$subject = '${SUBJECT}';
 
 print PBS_SCRIPT << "END_PERL";
 (
 (cat <<EOF_MAIL
 To: $email
-Subject: Results from job $name (PBS jobid $jobid)
+Subject: $subject
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
 
@@ -89,19 +98,19 @@ Content-Disposition: attachment; filename="$output"
 
 EOF_MAIL
 );
-perl -e '
+perl -e "
 use MIME::Base64 qw(encode_base64);
-open(FILE, "$file") or die "$!";
-while (read(FILE, $buf, 60*57)) {
-	print encode_base64($buf);
-}';
+open(FILE, '$file') or die '$!';
+while (read(FILE, \\\$buf, 60*57)) {
+	print encode_base64(\\\$buf);
+}";
 echo '---q1w2e3r4t5--';
 ) | ssh $mail_user\@$mail_host '$mail_command -t'
 END_PERL
 
-print PBS_SCRIPT "cd ..\n";
-print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
-print PBS_SCRIPT "rm -rf $dir\n";
+#print PBS_SCRIPT "cd ..\n";
+#print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
+#print PBS_SCRIPT "rm -rf $dir\n";
 
 close PBS_SCRIPT;
 
