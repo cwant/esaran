@@ -42,7 +42,8 @@ print PBS_SCRIPT "#PBS -m $notify\n";
 print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
-print PBS_SCRIPT "zip output *\n";
+print PBS_SCRIPT "OUTPUT=${user}_\${PBS_JOBID}.zip\n";
+print PBS_SCRIPT "zip \${OUTPUT} *\n";
 
 #now set up the mail portion of the script
 # Get the mail command for this OS
@@ -56,10 +57,10 @@ if ($systype eq "IRIX64") {
 #Configure mail/file
 $mail_host = "10.0.6.1";
 $mail_user = $user;
-$body = "Here is your output.";
+$body = "Here is the output from PBS job \${PBS_JOBID}.";
 $to = $email;
-$file = "$dir/output.zip";
-$output = "output.zip";
+$file = "$dir/\${OUTPUT}";
+$output = "\${OUTPUT}";
 
 
 ### note about below, easier but more memory intensive to do:
@@ -67,12 +68,13 @@ $output = "output.zip";
 
 #hack
 $buf = '$buf';
+$jobid = '${PBS_JOBID}';
 
 print PBS_SCRIPT << "END_PERL";
 (
 (cat <<EOF_MAIL
 To: $email
-Subject: Results from job $name
+Subject: Results from job $name (PBS jobid $jobid)
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
 
