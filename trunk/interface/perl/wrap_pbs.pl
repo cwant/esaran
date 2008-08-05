@@ -43,7 +43,7 @@ print PBS_SCRIPT "#PBS -M $email\n";
 print PBS_SCRIPT "cd $dir\n";
 print PBS_SCRIPT "$executable\n";
 print PBS_SCRIPT "OUTPUT=${user}_\${PBS_JOBID}.zip\n";
-print PBS_SCRIPT "zip \${OUTPUT} *\n";
+print PBS_SCRIPT "zip -r \${OUTPUT} *\n";
 
 #now set up the mail portion of the script
 # Get the mail command for this OS
@@ -99,8 +99,9 @@ echo '---q1w2e3r4t5--';
 ) | ssh $mail_user\@$mail_host '$mail_command -t'
 END_PERL
 
-
-#print PBS_SCRIPT "ssh $user\@10.0.6.1 \'(echo \"Here is your output\"; cd $dir; tar -cvvf output.tar *; uuencode $dir/output.tar output.tar) | mail -s \"Job $name is complete\" $email'\n";
+print PBS_SCRIPT "cd ..\n";
+print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
+print PBS_SCRIPT "rm -rf $dir\n";
 
 close PBS_SCRIPT;
 
