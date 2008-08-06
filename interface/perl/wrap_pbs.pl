@@ -49,6 +49,9 @@ $file = "$dir/\${OUTPUT}";
 $output = "\${OUTPUT}";
 $subject = '${SUBJECT}';
 $buf = '$buf';
+$webserver_site = "https://sciviz.nic.ualberta.ca/~cwant/hpc_web";
+$webserver_address = "cwant\@sciviz.nic.ualberta.ca";
+$webserver_subject = "HPC output download ready";
 
 open PBS_SCRIPT, ">pbs_script.pbs";
 
@@ -75,6 +78,10 @@ else
   SUBJECT="Results from job $name"
 fi
 zip -r \${OUTPUT} * > /dev/null
+ZIPSIZE=`wc -c \${OUTPUT} | cut -d " " -f 1`
+if [ \$ZIPSIZE -lt 5000000 ]
+then
+# zip file smaller then 5MB, mail to user
 (
 (cat <<EOF_MAIL
 To: $email
@@ -101,6 +108,35 @@ while (read(FILE, \\\$buf, 60*57)) {
 }";
 echo '---q1w2e3r4t5--';
 ) | ssh $mail_user\@$mail_host '$mail_command -t'
+else
+# zip file too big, signal webserver to pick it up
+(cat <<EOF_MAIL
+To: ${webserver_address}
+Subject: ${webserver_subject}
+MIME-Version: 1.0
+Content-Type: text/plain
+
+Path: $dir/$output
+Host: $host
+Username: $user
+EOF_MAIL
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+# mail user where to get the file
+(cat <<EOF_MAIL
+To: $email
+Subject: $subject
+MIME-Version: 1.0
+Content-Type: text/plain
+
+ The output from \${JOBNAME} is too large to mail (\${ZIPSIZE} bytes).
+
+ You can obtain your file at:
+
+   ${webserver_site}
+EOF_MAIL
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+
+fi
 ENDPERL
 # ---- END PBS Script ----------------------------------
 
