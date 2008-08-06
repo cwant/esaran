@@ -32,27 +32,30 @@ $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 
 open PBS_SCRIPT, ">pbs_script.pbs";
-print PBS_SCRIPT "#!/bin/bash -l\n";
-print PBS_SCRIPT "#PBS -N $name \n";
-print PBS_SCRIPT "#PBS -S /bin/bash\n";
-print PBS_SCRIPT "#PBS -l pvmem=$pvmem \n";
-print PBS_SCRIPT "#PBS -l nodes=$nodes:ppn=$ppn\n";
-print PBS_SCRIPT "#PBS -l walltime=$walltime\n";
-print PBS_SCRIPT "#PBS -m $notify\n";
-print PBS_SCRIPT "#PBS -M $email\n";
-print PBS_SCRIPT "cd $dir\n";
-print PBS_SCRIPT "$executable\n";
-print PBS_SCRIPT "if [ \"a\${PBS_JOBID}\" != \"a\" ]\n";
-print PBS_SCRIPT "then\n";
-print PBS_SCRIPT "  OUTPUT=${user}_\${PBS_JOBID}.zip\n";
-print PBS_SCRIPT "  JOBNAME=\"PBS job \${PBS_JOBID}\"\n";
-print PBS_SCRIPT "  SUBJECT=\"Results from job $name (\${JOBNAME})\"\n";
-print PBS_SCRIPT "else\n";
-print PBS_SCRIPT "  OUTPUT=${user}_${name}.zip\n";
-print PBS_SCRIPT "  JOBNAME=\"the job $name\"\n";
-print PBS_SCRIPT "  SUBJECT=\"Results from job $name\"\n";
-print PBS_SCRIPT "fi\n";
-print PBS_SCRIPT "zip -r \${OUTPUT} * > /dev/null\n";
+
+print PBS_SCRIPT << "ENDPERL";
+#!/bin/bash -l
+#PBS -N $name
+#PBS -S /bin/bash
+#PBS -l pvmem=$pvmem
+#PBS -l nodes=$nodes:ppn=$ppn
+#PBS -l walltime=$walltime
+#PBS -m $notify
+#PBS -M $email
+cd $dir
+$executable
+if [ "a\${PBS_JOBID}" != "a" ]
+then
+  OUTPUT="${user}_\${PBS_JOBID}.zip"
+  JOBNAME="PBS job \${PBS_JOBID}"
+  SUBJECT="Results from job $name (\${JOBNAME})"
+else
+  OUTPUT="${user}_${name}.zip"
+  JOBNAME="the job $name"
+  SUBJECT="Results from job $name"
+fi
+zip -r \${OUTPUT} * > /dev/null
+ENDPERL
 
 #now set up the mail portion of the script
 # Get the mail command for this OS
