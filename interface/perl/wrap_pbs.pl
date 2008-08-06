@@ -31,8 +31,28 @@ $walltime = "24:00:00"	if !$walltime;
 $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 
+#now set up the mail portion of the script
+# Get the mail command for this OS
+use POSIX qw(uname);
+($systype) = (POSIX::uname())[0];
+$mail_command = "/usr/sbin/sendmail";
+if ($systype eq "IRIX64") {
+	$mail_command = "/usr/lib/sendmail";
+}
+
+#Configure mail/file
+$mail_host = "10.0.6.1";
+$mail_user = $user;
+$body = "Here is the output from \${JOBNAME}.";
+$to = $email;
+$file = "$dir/\${OUTPUT}";
+$output = "\${OUTPUT}";
+$subject = '${SUBJECT}';
+$buf = '$buf';
+
 open PBS_SCRIPT, ">pbs_script.pbs";
 
+# ---- Start PBS Script --------------------------------------
 print PBS_SCRIPT << "ENDPERL";
 #!/bin/bash -l
 #PBS -N $name
@@ -55,34 +75,6 @@ else
   SUBJECT="Results from job $name"
 fi
 zip -r \${OUTPUT} * > /dev/null
-ENDPERL
-
-#now set up the mail portion of the script
-# Get the mail command for this OS
-use POSIX qw(uname);
-($systype) = (POSIX::uname())[0];
-$mail_command = "/usr/sbin/sendmail";
-if ($systype eq "IRIX64") {
-	$mail_command = "/usr/lib/sendmail";
-}
-
-#Configure mail/file
-$mail_host = "10.0.6.1";
-$mail_user = $user;
-$body = "Here is the output from \${JOBNAME}.";
-$to = $email;
-$file = "$dir/\${OUTPUT}";
-$output = "\${OUTPUT}";
-
-
-### note about below, easier but more memory intensive to do:
-###	perl -MMINME::Base64 -0777 -ne 'print encode_base64($_)' <file
-
-#hack
-$buf = '$buf';
-$subject = '${SUBJECT}';
-
-print PBS_SCRIPT << "END_PERL";
 (
 (cat <<EOF_MAIL
 To: $email
@@ -109,7 +101,8 @@ while (read(FILE, \\\$buf, 60*57)) {
 }";
 echo '---q1w2e3r4t5--';
 ) | ssh $mail_user\@$mail_host '$mail_command -t'
-END_PERL
+ENDPERL
+# ---- END PBS Script ----------------------------------
 
 #print PBS_SCRIPT "cd ..\n";
 #print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
