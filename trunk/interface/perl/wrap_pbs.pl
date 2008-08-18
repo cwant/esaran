@@ -22,6 +22,7 @@ arg_error("-x or --executable required")	if !$executable;
 arg_error("-e or --email required") if !$email;
 arg_error("-u or --user required") if !$user;
 
+$CHMOD = "chmod o+r";
 $name = "job1"		if !$name;
 $pvmem = "512mb"	if !$pvmem;
 $nodes = 1		if !$nodes;
@@ -78,6 +79,7 @@ else
   SUBJECT="Results from job $name"
 fi
 zip -r \${OUTPUT} * > /dev/null
+$CHMOD \${OUTPUT}
 ZIPSIZE=`wc -c \${OUTPUT} | cut -d " " -f 1`
 if [ \$ZIPSIZE -lt 5000000 ]
 then
@@ -147,7 +149,7 @@ ENDPERL
 close PBS_SCRIPT;
 
 system("tar -cvvf $name.$$.tar *");
-system("ssh $host -l $user \"mkdir -p $dir\n\"");
+system("ssh $host -l $user \"mkdir -p $dir; $CHMOD $dir\"");
 system("scp $name.$$.tar $user\@$host:$dir");
 system("rm -f $name.$$.tar pbs_script.pbs");
 system("ssh $host -l $user \"cd $dir\n tar -xvvf $name.$$.tar\nqsub pbs_script.pbs\n\"");
