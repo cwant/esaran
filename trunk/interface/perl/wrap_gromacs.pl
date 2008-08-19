@@ -22,7 +22,7 @@ arg_error("-a or --args required")	if !$gro_args;
 arg_error("-e or --email required") if !$email;
 arg_error("-u or --user required") if !$user;
 
-system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\"");
+system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m pvmem -n $nodes -i $ppn -w $walltime -E $notify -H $host -d $dir");
 
 sub arg_error {
 	###Display errors in arguments and usage
@@ -34,9 +34,9 @@ sub arg_error {
 
 	print << "EOUSAGE";
 
-Description: This program is used to create and submit .pbs files.
+Description: This program is used to create and submit gromacs jobs.
 
-Usage: perl wrap_pbs.pl [options]
+Usage: ./wrap_gromacs.pl [options]
 
 Options:
 	-a or --args (required)
@@ -67,8 +67,8 @@ Options:
 		The directory where your files are located.  Default is the directory from which this script was run.
 
 Example:
-	perl wrap_pbs.pl -x "./pi<pi.input" -e sjw1\@ualberta.ca -N myJob14 -m 2gb -n 2 -p 2 -w 48:00:00
-		---runs program pi with input file pi.input with name myJob14, 2gb of memory on 2 nodes with 2 processors each and a walltime of 48 hours
+	wrap_gromacs.pl -a "-s topol.tpr" -e sjw1\@ualberta.ca -N myJob14 -m 2gb -n 2 -p 2 -w 48:00:00
+		---runs mdrun with input file topol.tpr with name myJob14, 2gb of memory on 2 nodes with 2 processors each and a walltime of 48 hours
 
 EOUSAGE
 
