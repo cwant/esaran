@@ -22,7 +22,20 @@ arg_error("-a or --args required")	if !$gro_args;
 arg_error("-e or --email required") if !$email;
 arg_error("-u or --user required") if !$user;
 
-system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m pvmem -n $nodes -i $ppn -w $walltime -E $notify -H $host -d $dir");
+$name = "job1"		if !$name;
+$pvmem = "512mb"	if !$pvmem;
+$nodes = 1		if !$nodes;
+$ppn = 1		if !$ppn;
+$host = "cluster.srv.ualberta.ca" if !$host;
+$walltime = "24:00:00" 	if !$walltime;
+$notify = "bea"		if !$notify;
+$dir = "/scratch/$user/$name_$$.tmp" if !$dir;
+
+
+#system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify");
+
+system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host");
+#system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m pvmem -n $nodes -i $ppn -w $walltime -E $notify -H $host -d $dir");
 
 sub arg_error {
 	###Display errors in arguments and usage
