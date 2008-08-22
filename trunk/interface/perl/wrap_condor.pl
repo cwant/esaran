@@ -1,80 +1,210 @@
 #!/usr/bin/perl
 
-# This script creates a condor .sub file and sends it to the cluster to be run.
-# pi is a c program that estimates pi based on the number of intervals 
-# which is provided in pi.input.
-# It makes assumptions about the order of the command
-# line arguments.
+use Getopt::Long;
+Getopt::Long::Configure("bundling");
 
-# Run using:
-#    perl wrap_condor.pl <executable> <transfer_input_files> <output> \
-#               <error> <log>
+GetOptions(
+	"requirements|R=s"	=> \$requirements,
+	"email|e=s"		=> \$email,
+	"host|H=s"		=> \$host,
+	"user|u=s"		=> \$user,
+	"dir|d=s"		=> \$dir,
+	"exe|x=s"		=> \$executable,
+	"output|o=s"		=> \$out_put,
+	"error|err=s"		=> \$error,
+	"log|l=s"		=> \$log,
+	"name|n=s"		=> \$name,
+	"help|h"		=> \$help);
 
-#print (++$n,": $_\n") foreach (@ARGV);
-#print(@ARGV);
+arg_error("")				if $help;
+arg_error("-x or --executable required")	if !$executable;
+arg_error("-e or --email required") if !$email;
+arg_error("-u or --user required") if !$user;
 
-$mode = 0;
-#0 = normal, 1 = help
+$CHMOD = "chmod o+r";
+$requirements = ""	if !$requirements;
+$name = "job1"		if !$name;
+$out_put = "$name.out"	if !$out_put;
+$error = "$name.err"	if !$error;
+$log = "$name.log"	if !$log;
+$host = "cluster.srv.ualberta.ca" if !$host;
+$dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 
-if ($ARGV[0] eq "h") {
-    $mode = 1;
-    }
+#now set up the mail portion of the script
+# Get the mail command for this OS
+use POSIX qw(uname);
+($systype) = (POSIX::uname())[0];
+$mail_command = "/usr/sbin/sendmail";
+if ($systype eq "IRIX64") {
+	$mail_command = "/usr/lib/sendmail";
+}
 
-print ("mode is $mode\n");
+#Configure mail/file
+$mail_host = "10.0.6.1";
+$mail_user = $user;
+$body = "Here is the output from \${JOBNAME}.";
+$to = $email;
+$file = "$dir/\${OUTPUT}";
+$output = "\${OUTPUT}";
+$subject = '${SUBJECT}';
+$buf = '$buf';
+$webserver_site = "https://sciviz.nic.ualberta.ca/~cwant/hpc_web";
+$webserver_address = "cwant\@sciviz.nic.ualberta.ca";
+$webserver_subject = "HPC output download ready";
 
-print ("For help or to run interactively, run wrap_condor -h\n\n");
+open CONDOR_SCRIPT, ">condor_script.sub";
 
-#set up default values
-$universe = "vanilla";
-$requirements = "OpSys == \"WINNT51\" && ARCH == \"INTEL\"";
-#$notify_user = "sjw1\@ualberta.ca";
-$environment = "path=c:\\winnt\\system32";
-$should_transfer_files = "YES";
-$when_to_transfer_output = "ON_EXIT";
-$executable = "test";
+# ---- Start Condor Script --------------------------------------
+print CONDOR_SCRIPT << "ENDPERL";
+universe = vanilla
+requirements = $requirements
+notify_user = $email
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+executable = $executable
+output = $out_put
+error = $error
+log = $log
+queue
 
-#should be set as same as executable eg. if exe is date, then date.err, date.log, etc
-$tranfer_input_files = $executable;
-$tranfer_output_files = $executable;
-$output = $executable;
-$error = $executable;
-$log = $executable;
+if [ "a\${PBS_JOBID}" != "a" ]
+then
+  OUTPUT="${user}_\${PBS_JOBID}.zip"
+  JOBNAME="PBS job \${PBS_JOBID}"
+  SUBJECT="Results from job $name (\${JOBNAME})"
+else
+  OUTPUT="${user}_${name}.zip"
+  JOBNAME="the job $name"
+  SUBJECT="Results from job $name"
+fi
+zip -r \${OUTPUT} * > /dev/null
+$CHMOD \${OUTPUT}
+ZIPSIZE=`wc -c \${OUTPUT} | cut -d " " -f 1`
+if [ \$ZIPSIZE -lt 5000000 ]
+then
+# zip file smaller then 5MB, mail to user
+(
+(cat <<EOF_MAIL
+To: $email
+Subject: $subject
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
 
-for ($argNum=0; $argNum<=$#ARGV; $argNum++) {
-	#print ("argnum = $argNum\n argv[".$argnum."] = ".$ARGV[$argNum]."\n");
-	if ($ARGV[$argNum] eq "-u") {$universe = $ARGV[$argNum + 1]}
-	#print ($universe."\n");
-	elsif ($ARGV[$argNum] eq "-r") {$requirements = $ARGV[$argNum + 1]} #special case as could be a list
-	elsif ($ARGV[$argNum] eq "-m") {$notify_user = $ARGV[$argNum + 1]} #is @ working right??
-	elsif ($ARGV[$argNum] eq "-s") {$should_transfer_files = $ARGV[$argNum + 1]}
-	elsif ($ARGV[$argNum] eq "-w") {$when_to_transfer_output = $ARGV[$argNum + 1]}
-	elsif ($ARGV[$argNum] eq "-x") {$executable = $ARGV[$argNum + 1]; $transfer_output_files=$executable; $transfer_output_files=$executable; $output = $executable; $error = $executable; $log = $executable}
-	elsif ($ARGV[$argNum] eq "-i") {$input = $ARGV[$argNum + 1]} #special case as could be a list
-	elsif ($ARGV[$argNum] eq "-o") {$output = $ARGV[$argNum + 1]}
-	elsif ($ARGV[$argNum] eq "-e") {$error = $ARGV[$argNum + 1]}
-	elsif ($ARGV[$argNum] eq "-l") {$log = $ARGV[$argNum + 1]}
-	elsif ($ARGV[$argNum] eq "- {print ("You've tried to use an unknown tag or forgotten a - ".$ARGV[$argNum]."\n")}
+---q1w2e3r4t5
+Content-Type: text/plain
+
+$body
+---q1w2e3r4t5
+Content-Type: application; name=$output
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="$output"
+
+EOF_MAIL
+);
+perl -e "
+use MIME::Base64 qw(encode_base64);
+open(FILE, '$file') or die '$!';
+while (read(FILE, \\\$buf, 60*57)) {
+	print encode_base64(\\\$buf);
+}";
+echo '---q1w2e3r4t5--';
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+else
+# zip file too big, signal webserver to pick it up
+(cat <<EOF_MAIL
+To: ${webserver_address}
+Subject: ${webserver_subject}
+MIME-Version: 1.0
+Content-Type: text/plain
+
+Path: $dir/$output
+Host: $host
+Username: $user
+EOF_MAIL
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+# mail user where to get the file
+(cat <<EOF_MAIL
+To: $email
+Subject: $subject
+MIME-Version: 1.0
+Content-Type: text/plain
+
+ The output from \${JOBNAME} is too large to mail (\${ZIPSIZE} bytes).
+
+ You can obtain your file at:
+
+   ${webserver_site}
+EOF_MAIL
+) | ssh $mail_user\@$mail_host '$mail_command -t'
+
+fi
+ENDPERL
+# ---- END Condor Script ----------------------------------
+
+#print PBS_SCRIPT "cd ..\n";
+#print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
+#print PBS_SCRIPT "rm -rf $dir\n";
+
+close CONDOR_SCRIPT;
+
+system("tar -cvvf $name.$$.tar *");
+system("ssh $host -l $user \"mkdir -p $dir; $CHMOD $dir\"");
+system("scp $name.$$.tar $user\@$host:$dir");
+system("rm -f $name.$$.tar condor_script.sub");
+system("ssh $host -l $user \"cd $dir\n tar -xvvf $name.$$.tar\ncondor_submit condor_script.sub\n\"");
+
+sub arg_error {
+	###Display errors in arguments and usage
+	my ($message) = @_;
+	if ($message ne "") {
+		print "There is an incorrect parameter\n\n";
+		print "*** $message ***\n"
+	}
+
+	print << "EOUSAGE";
+
+Description: This program is used to create and submit .pbs files.
+
+Usage: perl wrap_pbs.pl [options]
+
+Options:
+	-x or --executable (required)
+		The name of the program you want to run with the required arguments for that program
+
+	-e or --email (required)
+		The email address for notifying the user of errors and completion of the program
+
+	-u or --user (required)
+		The user id used to login to the HPC resource
+
+	-N or --name (optional, default job1)
+		The name of the job that is submitted to the HPC resource
+
+	-m or --pvmem (optional, default = 512mb)
+		The size of memory you required to a max of 30gb
+
+	-n or --nodes (optional, default = 1)
+		The number of nodes you required to a max of 29
+
+	-p or --ppn (optional, default = 1)
+		The number of processors per node required to a max of 4
+
+	-w or --walltime (optional, default = 24:00:00
+		The approximate time required to run your program to a max of 168:00:00
+
+	-d or --dir (optional, default = \$PBS_O_WORKDIR)
+		The directory where your files are located.  Default is the directory from which this script was run.
+
+Example:
+	perl wrap_pbs.pl -x "./pi<pi.input" -e sjw1\@ualberta.ca -N myJob14 -m 2gb -n 2 -p 2 -w 48:00:00
+		---runs program pi with input file pi.input with name myJob14, 2gb of memory on 2 nodes with 2 processors each and a walltime of 48 hours
+
+EOUSAGE
+
+exit 1;
+
 }
 
 
-open CONDOR_SCRIPT, ">$executable.sub";
-print CONDOR_SCRIPT "universe=$universe\n";
-print CONDOR_SCRIPT "requirements = OpSys == \"WINNT51\" && Arch == \"INTEL\"\n";
-print CONDOR_SCRIPT "notify_user=sjw1\@ualberta.ca\n";
-print CONDOR_SCRIPT "environment = path=c:\\winnt\\system32\n";
-print CONDOR_SCRIPT "should_transfer_files = $should_transfer_files\n";
-print CONDOR_SCRIPT "when_to_transfer_output = $when_to_transfer_output\n";
-print CONDOR_SCRIPT "executable = $executable.bat\n";
-print CONDOR_SCRIPT "transfer_input_files = $executable.bat\n";
-#print CONDOR_SCRIPT "transfer_output_files =\n";
-print CONDOR_SCRIPT "output = $output.out\n";
-print CONDOR_SCRIPT "error = $error.err\n";
-print CONDOR_SCRIPT "log = ".$log.".log\n";
-print CONDOR_SCRIPT "queue\n";
-close CONDOR_SCRIPT;
 
-
-system("scp $executable.sub sjw1\@cluster.srv.ualberta.ca:~/");
-system("ssh cluster.srv.ualberta.ca -l sjw1 \"condor_submit $executable.sub\n\"");
-
-
+	
