@@ -30,28 +30,6 @@ $log = "$name.log"	if !$log;
 $host = "cluster.srv.ualberta.ca" if !$host;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 
-#now set up the mail portion of the script
-# Get the mail command for this OS
-use POSIX qw(uname);
-($systype) = (POSIX::uname())[0];
-$mail_command = "/usr/sbin/sendmail";
-if ($systype eq "IRIX64") {
-	$mail_command = "/usr/lib/sendmail";
-}
-
-#Configure mail/file
-$mail_host = "10.0.6.1";
-$mail_user = $user;
-$body = "Here is the output from \${JOBNAME}.";
-$to = $email;
-$file = "$dir/\${OUTPUT}";
-$output = "\${OUTPUT}";
-$subject = '${SUBJECT}';
-$buf = '$buf';
-$webserver_site = "https://sciviz.nic.ualberta.ca/~cwant/hpc_web";
-$webserver_address = "cwant\@sciviz.nic.ualberta.ca";
-$webserver_subject = "HPC output download ready";
-
 open CONDOR_SCRIPT, ">condor_script.sub";
 
 # ---- Start Condor Script --------------------------------------
@@ -66,91 +44,15 @@ output = $out_put
 error = $error
 log = $log
 queue
-
-if [ "a\${PBS_JOBID}" != "a" ]
-then
-  OUTPUT="${user}_\${PBS_JOBID}.zip"
-  JOBNAME="PBS job \${PBS_JOBID}"
-  SUBJECT="Results from job $name (\${JOBNAME})"
-else
-  OUTPUT="${user}_${name}.zip"
-  JOBNAME="the job $name"
-  SUBJECT="Results from job $name"
-fi
-zip -r \${OUTPUT} * > /dev/null
-$CHMOD \${OUTPUT}
-ZIPSIZE=`wc -c \${OUTPUT} | cut -d " " -f 1`
-if [ \$ZIPSIZE -lt 5000000 ]
-then
-# zip file smaller then 5MB, mail to user
-(
-(cat <<EOF_MAIL
-To: $email
-Subject: $subject
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
-
----q1w2e3r4t5
-Content-Type: text/plain
-
-$body
----q1w2e3r4t5
-Content-Type: application; name=$output
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="$output"
-
-EOF_MAIL
-);
-perl -e "
-use MIME::Base64 qw(encode_base64);
-open(FILE, '$file') or die '$!';
-while (read(FILE, \\\$buf, 60*57)) {
-	print encode_base64(\\\$buf);
-}";
-echo '---q1w2e3r4t5--';
-) | ssh $mail_user\@$mail_host '$mail_command -t'
-else
-# zip file too big, signal webserver to pick it up
-(cat <<EOF_MAIL
-To: ${webserver_address}
-Subject: ${webserver_subject}
-MIME-Version: 1.0
-Content-Type: text/plain
-
-Path: $dir/$output
-Host: $host
-Username: $user
-EOF_MAIL
-) | ssh $mail_user\@$mail_host '$mail_command -t'
-# mail user where to get the file
-(cat <<EOF_MAIL
-To: $email
-Subject: $subject
-MIME-Version: 1.0
-Content-Type: text/plain
-
- The output from \${JOBNAME} is too large to mail (\${ZIPSIZE} bytes).
-
- You can obtain your file at:
-
-   ${webserver_site}
-EOF_MAIL
-) | ssh $mail_user\@$mail_host '$mail_command -t'
-
-fi
 ENDPERL
 # ---- END Condor Script ----------------------------------
-
-#print PBS_SCRIPT "cd ..\n";
-#print PBS_SCRIPT "cp -r $dir /tmp/$user\n";
-#print PBS_SCRIPT "rm -rf $dir\n";
 
 close CONDOR_SCRIPT;
 
 system("tar -cvvf $name.$$.tar *");
 system("ssh $host -l $user \"mkdir -p $dir; $CHMOD $dir\"");
 system("scp $name.$$.tar $user\@$host:$dir");
-system("rm -f $name.$$.tar condor_script.sub");
+#system("rm -f $name.$$.tar condor_script.sub");
 system("ssh $host -l $user \"cd $dir\n tar -xvvf $name.$$.tar\ncondor_submit condor_script.sub\n\"");
 
 sub arg_error {
@@ -204,7 +106,3 @@ EOUSAGE
 exit 1;
 
 }
-
-
-
-	
