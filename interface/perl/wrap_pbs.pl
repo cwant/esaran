@@ -15,7 +15,8 @@ GetOptions(
 	"user|u=s"	=> \$user,
 	"dir|d=s"	=> \$dir,
 	"exe|x=s"	=> \$executable,
-	"help|h"	=> \$help);
+	"help|h"	=> \$help,
+	"key|k=s"	=> \$key);
 
 arg_error("")				if $help;
 arg_error("-x or --executable required")	if !$executable;
@@ -31,7 +32,14 @@ $host = "cluster.srv.ualberta.ca" if !$host;
 $walltime = "24:00:00"	if !$walltime;
 $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
+$key = ""		if !$key;
 
+$ssh_auth = $ENV{'SSH_AUTH_SOCK'};
+if(!$ssh_auth){  #the case where wrap_pbs hasn't been called from another script - does this ever happen???
+	system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
+	exit;
+}
+else {
 #now set up the mail portion of the script
 # Get the mail command for this OS
 use POSIX qw(uname);
@@ -148,6 +156,7 @@ ENDPERL
 
 close PBS_SCRIPT;
 
+system("ssh-add $key");
 system("tar -cvvf $name.$$.tar *");
 system("ssh $host -l $user \"mkdir -p $dir; $CHMOD $dir\"");
 system("scp $name.$$.tar $user\@$host:$dir");
@@ -205,7 +214,7 @@ EOUSAGE
 exit 1;
 
 }
-
+}
 
 
 	
