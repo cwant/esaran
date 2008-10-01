@@ -15,7 +15,8 @@ GetOptions(
 	"user|u=s"	=> \$user,
 	"dir|d=s"	=> \$dir,
 	"args|a=s"	=> \$gro_args,
-	"help|h"	=> \$help);
+	"help|h"	=> \$help,
+	"key|k=s"	=> \$key);
 
 arg_error("")				if $help;
 arg_error("-a or --args required")	if !$gro_args;
@@ -31,7 +32,12 @@ $walltime = "24:00:00" 	if !$walltime;
 $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;
 
-system("./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
+if (!$key) {
+system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
+}
+else {
+system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir -k $key");
+}
 
 sub arg_error {
 	###Display errors in arguments and usage
