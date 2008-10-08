@@ -156,7 +156,17 @@ ENDPERL
 
 close PBS_SCRIPT;
 
-system("ssh-add $key");
+system("ssh-add -L >/dev/null");
+if ($? != 0) { #case where there are no keys
+	system("ssh-add $key");
+}
+else{ #case where there are keys
+	system("ssh -o PasswordAuthentication=no $host -l $user date"); #test if right key for the $host
+	if ($? != 0) { #not the right key $host
+		system("ssh-add $key");
+	}
+}
+
 system("tar -cvvf $name.$$.tar *");
 system("ssh $host -l $user \"mkdir -p $dir; $CHMOD $dir\"");
 system("scp $name.$$.tar $user\@$host:$dir");
@@ -204,6 +214,7 @@ Options:
 
 	-d or --dir (optional, default = \$PBS_O_WORKDIR)
 		The directory where your files are located.  Default is the directory from which this script was run.
+
 
 Example:
 	perl wrap_pbs.pl -x "./pi<pi.input" -e sjw1\@ualberta.ca -N myJob14 -m 2gb -n 2 -p 2 -w 48:00:00
