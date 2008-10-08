@@ -33,10 +33,10 @@ $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;
 
 if (!$key) {
-system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
+system("perl wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
 }
 else {
-system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir -k $key");
+system("perl wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir -k $key");
 }
 
 sub arg_error {

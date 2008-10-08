@@ -36,7 +36,7 @@ $key = ""		if !$key;
 
 $ssh_auth = $ENV{'SSH_AUTH_SOCK'};
 if(!$ssh_auth){  #the case where wrap_pbs hasn't been called from another script - does this ever happen???
-	system("ssh-agent ./wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
+	system("ssh-agent perl wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
 	exit;
 }
 else {
@@ -156,14 +156,26 @@ ENDPERL
 
 close PBS_SCRIPT;
 
-system("ssh-add -L >/dev/null");
-if ($? != 0) { #case where there are no keys
-	system("ssh-add $key");
+$needkey = 0;
+$exitcode = system("ssh-add -L > /dev/null");
+
+if ($exitcode != 0) { #case where there are no keys
+	$needkey=1;
 }
 else{ #case where there are keys
-	system("ssh -o PasswordAuthentication=no $host -l $user date"); #test if right key for the $host
+	system("ssh -o NumberOfPasswordPrompts=0 $host -l $user date"); #test if right key for the $host
 	if ($? != 0) { #not the right key $host
-		system("ssh-add $key");
+		$needkey = 1;
+	}
+}
+if ($needkey) {
+
+	system("ssh-add $key > /dev/null");
+
+	# Try again to see if the key worked
+	system("ssh -o NumberOfPasswordPrompts=0 $host -l $user date"); #test if right key for the $host
+	if ($? != 0) { #not the right key $host
+		print "Could not use your key to submit job!\n";
 	}
 }
 
