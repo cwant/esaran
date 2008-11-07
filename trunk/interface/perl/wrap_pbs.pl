@@ -44,38 +44,11 @@ $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;  #what should this be??? /scratch/user/$name??
 $key = ""		if !$key;
 
-### Check if there is an ssh-agent running -- if not, re-run self in
-### an agent.
-$ssh_auth = $ENV{'SSH_AUTH_SOCK'};
-if(!$ssh_auth) {
-	system("ssh-agent perl wrap_pbs.pl " . $args);
-	exit;
-}
 
+### Try to set up ssh to work as painlessly as possible, i.e., with
+### an ssh-agent and keys
+set_up_ssh($user, $host, $key, $args);
 
-### Check if there are ssh-keys loaded
-$needkey = 0;
-$exitcode = system("ssh-add -L > /dev/null");
-
-if ($exitcode != 0) { #case where there are no keys
-	$needkey=1;
-}
-else{ #case where there are keys
-	system("ssh -o NumberOfPasswordPrompts=0 $host -l $user date"); #test if right key for the $host
-	if ($? != 0) { #not the right key $host
-		$needkey = 1;
-	}
-}
-if ($needkey) {
-
-	system("ssh-add $key > /dev/null");
-
-	# Try again to see if the key worked
-	system("ssh -o NumberOfPasswordPrompts=0 $host -l $user date"); #test if right key for the $host
-	if ($? != 0) { #not the right key $host
-		print "Could not use your key to submit job!\n";
-	}
-}
 
 #now set up the mail portion of the script
 # Get the mail command for this OS
@@ -252,3 +225,72 @@ exit 1;
 
 }
 
+#################### SSH FUNCTIONS ########################################
+
+sub ssh_keys_loaded {
+	$exitcode = system("ssh-add -L > /dev/null");
+	if ($exitcode) {
+		return 0;
+	}
+	return 1;
+}
+
+sub test_ssh_key {
+	my ($user, $host) = @_;
+
+	$exitcode = system("ssh -o NumberOfPasswordPrompts=0 $host -l $user date");
+	if ($exitcode) {
+		return 0;
+	}
+	return 1;
+}
+
+sub ssh_need_key {
+	my ($user, $host) = @_;
+
+	if ( !ssh_keys_loaded() ) {
+		# Case where there are no keys
+		return 1;
+	}
+
+	# Case where there are keys
+	if ( !test_ssh_key($user, $host)) {
+		return 1;
+	}
+
+	return 0;
+}
+
+sub set_up_ssh {
+	my ($user, $host, $key, $args) = @_;
+	# Check if there is an ssh-agent running -- if not, re-run self in
+	# an agent.
+	$ssh_auth = $ENV{'SSH_AUTH_SOCK'};
+	if(!$ssh_auth) {
+		system("ssh-agent perl wrap_pbs.pl " . $args);
+		exit;
+	}
+
+	# Check if there are ssh-keys loaded
+	if (ssh_need_key($user, $host)) {
+
+		# Key needed, so try to add key, note that the variable
+		# $key will be empty unless the user used -k
+		system("ssh-add $key > /dev/null");
+
+		# Try again to see if the key worked
+		if ( !test_ssh_key() ) {
+			# Key didn't word, so educate the user ...
+			print << "SSH_EOF";
+-------------------------------------------------------------------------
+To avoid typing your password multiple times, please set up public key
+authentication. Please see
+
+  http://www.ualberta.ca/AICT/RESEARCH/LinuxClusters/pka-openssh.html
+
+For assistance, please contact research.support@ualberta.ca
+-------------------------------------------------------------------------
+SSH_EOF
+		}
+	}
+}
