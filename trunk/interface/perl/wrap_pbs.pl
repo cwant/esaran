@@ -14,19 +14,19 @@ use Getopt::Long;
 Getopt::Long::Configure("bundling");
 
 GetOptions(
-	"name|N=s"	=> \$name,
-	"pvmem|m=s"	=> \$pvmem,
-	"nodes|n=i"	=> \$nodes,
-	"ppn|p=i"	=> \$ppn,
-	"walltime|w=s"	=> \$walltime,
-	"notify|E=s"	=> \$notify,
-	"email|e=s"	=> \$email,
-	"host|H=s"	=> \$host,
-	"user|u=s"	=> \$user,
-	"dir|d=s"	=> \$dir,
-	"exe|x=s"	=> \$executable,
+	"name|N=s"	=> \$name, #name of the job
+	"pvmem|m=s"	=> \$pvmem, #pbs arg
+	"nodes|n=i"	=> \$nodes, #pbs arg
+	"ppn|p=i"	=> \$ppn, #pbs arg
+	"walltime|w=s"	=> \$walltime, #pbs arg
+	"notify|E=s"	=> \$notify, #pbs arg
+	"email|e=s"	=> \$email, #user's email address
+	"host|H=s"	=> \$host, #host on which to run the job
+	"user|u=s"	=> \$user, #user's login to host
+	"dir|d=s"	=> \$dir, #directory in which to run the job on host
+	"exe|x=s"	=> \$executable, #exe to run
 	"help|h"	=> \$help,
-	"key|k=s"	=> \$key);
+	"key|k=s"	=> \$key); #arg to use ssh-keys
 
 arg_error("")				if $help;
 arg_error("-x or --executable required")	if !$executable;

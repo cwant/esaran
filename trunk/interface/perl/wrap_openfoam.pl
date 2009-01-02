@@ -4,16 +4,16 @@ use Getopt::Long;
 Getopt::Long::Configure("bundling");
 
 GetOptions(
-	"name|N=s"	=> \$name,
-	"pvmem|m=s"	=> \$pvmem,
+	"name|N=s"	=> \$name,  #name of the job
+	"pvmem|m=s"	=> \$pvmem, 
 	"nodes|n=i"	=> \$nodes,
-	"ppn|p=i"	=> \$ppn,
+	"ppn|p=i"	=> \$ppn, 
 	"walltime|w=s"	=> \$walltime,
 	"notify|E=s"	=> \$notify,
 	"email|e=s"	=> \$email,
 	"host|H=s"	=> \$host,
-	"user|u=s"	=> \$user,
-	"dir|d=s"	=> \$dir,
+	"user|u=s"	=> \$user, #username to access cluster
+	"dir|d=s"	=> \$dir, 
 	"args|a=s"	=> \$of_args,
 	"help|h"	=> \$help);
 
@@ -22,6 +22,7 @@ arg_error("-a or --args required")	if !$of_args;
 arg_error("-e or --email required") if !$email;
 arg_error("-u or --user required") if !$user;
 
+#call wrap_pbs with all the required args
 system("./wrap_pbs.pl -u $user -e $email -x \"$of_args\" -N $name -m pvmem -n $nodes -i $ppn -w $walltime -E $notify -H $host -d $dir");
 
 sub arg_error {
