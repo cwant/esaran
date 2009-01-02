@@ -4,19 +4,19 @@ use Getopt::Long;
 Getopt::Long::Configure("bundling");
 
 GetOptions(
-	"name|N=s"	=> \$name,
-	"pvmem|m=s"	=> \$pvmem,
-	"nodes|n=i"	=> \$nodes,
-	"ppn|p=i"	=> \$ppn,
-	"walltime|w=s"	=> \$walltime,
-	"notify|E=s"	=> \$notify,
-	"email|e=s"	=> \$email,
-	"host|H=s"	=> \$host,
-	"user|u=s"	=> \$user,
-	"dir|d=s"	=> \$dir,
-	"args|a=s"	=> \$gro_args,
+	"name|N=s"	=> \$name, #name of the job to run
+	"pvmem|m=s"	=> \$pvmem, #arg for pbs
+	"nodes|n=i"	=> \$nodes, #arg for pbs
+	"ppn|p=i"	=> \$ppn, #arg for pbs
+	"walltime|w=s"	=> \$walltime, #arg for pbs
+	"notify|E=s"	=> \$notify, #arg for pbs
+	"email|e=s"	=> \$email, #user's email
+	"host|H=s"	=> \$host, #host on which the job will run
+	"user|u=s"	=> \$user, #user login to that host
+	"dir|d=s"	=> \$dir, #directory to run the job in
+	"args|a=s"	=> \$gro_args, #args for gromacs
 	"help|h"	=> \$help,
-	"key|k=s"	=> \$key);
+	"key|k=s"	=> \$key); #to use ssh-keys
 
 arg_error("")				if $help;
 arg_error("-a or --args required")	if !$gro_args;
@@ -32,10 +32,10 @@ $walltime = "24:00:00" 	if !$walltime;
 $notify = "bea"		if !$notify;
 $dir = "/scratch/$user/$name_$$.tmp" if !$dir;
 
-if (!$key) {
+if (!$key) {  #don't use ssh keys
 system("perl wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir");
 }
-else {
+else { #use ssh-keys
 system("perl wrap_pbs.pl -u $user -e $email -x \"module load gromacs;mdrun $gro_args\" -N $name -m $pvmem -n $nodes -p $ppn -w $walltime -E $notify -H $host -d $dir -k $key");
 }
 
