@@ -33,7 +33,8 @@ Helper module for executing PBS jobs remotely.
 """
 
 ### Main Entry Point
-def do_wrapper(add_program_options, get_program_cmdline):
+def do_wrapper(name, add_program_options,
+               add_gui_controls, get_program_cmdline):
     # add_program_options and get_program_cmdline are callbacks
     import os, optparse
 
@@ -47,7 +48,10 @@ def do_wrapper(add_program_options, get_program_cmdline):
         add_program_options(parser)
         add_pbs_options(parser)
         add_ssh_options(parser)
+        add_gui_options(parser)
         (options, args) = parser.parse_args()
+        if (options.gui):
+            make_gui(name, config, options, args, add_gui_options)
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
@@ -439,3 +443,101 @@ def queue_pbs_script(workfile, workdir, options):
                                (workdir, workfile),
                                shell=True)
 
+
+### GUI ############################################################
+
+def add_gui_options(parser):
+    import optparse
+
+    g = optparse.OptionGroup(parser, "GUI options")
+
+    ### Key
+    g.add_option("-g", "--gui", action="store_true", dest="gui",
+                 help="Spawn wxPython GUI", default=False)
+    
+    parser.add_option_group(g)
+
+def make_gui(name, config, options, args, add_gui_options):
+    import sys
+    try:
+        import wx
+    except:
+        return
+
+    app = wx.PySimpleApp()
+    frame = OptionsWindow(None, -1, name, 
+                          config, options, args, add_gui_options)
+    app.MainLoop()
+
+try:
+    import wx
+except:
+    sys.exit(1)
+
+class OptionsWindow(wx.Frame):
+    def __init__(self, parent, id, title,
+                 config, options, args, add_gui_options):
+
+        wx.Frame.__init__(self, parent, wx.ID_ANY, title)
+
+        self.name    = title
+        self.config  = config
+        self.options = options
+        self.args    = args
+
+        ### Add Fields
+        self.fields = []
+        self.add_text_control("Jobname:",
+                              self.options.jobname,
+                              self.handle_jobname)
+
+        self.fields_sizer = wx.FlexGridSizer(rows=len(self.fields), cols=2, 
+                                             vgap=10, hgap=10)
+
+        for field in self.fields:
+            self.fields_sizer.Add(field[0], 2, wx.EXPAND)
+            self.fields_sizer.Add(field[1], 1, wx.EXPAND)
+
+        ### Add Buttons
+        self.buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.submit_button = wx.Button(self, label="Submit")
+        self.cancel_button = wx.Button(self, label="Cancel")
+        self.submit_button.Bind(wx.EVT_BUTTON, self.OnSubmit)
+        self.cancel_button.Bind(wx.EVT_BUTTON, self.OnCancel)
+        self.buttons_sizer.Add(self.submit_button,1,wx.EXPAND)
+        self.buttons_sizer.Add(self.cancel_button,1,wx.EXPAND)
+
+        ### Layout Sizers
+        self.sizer=wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.fields_sizer, 1,  wx.ALL, border=5)
+        self.sizer.Add(self.buttons_sizer, 0, wx.ALL|wx.EXPAND, border=5)
+        self.SetSizerAndFit(self.sizer)
+        #self.SetAutoLayout(1)
+        #self.sizer.Fit(self)
+
+        self.Show(1)
+
+    def OnSubmit(self,e):
+        d= wx.MessageDialog( self, "Your job has been submitted",
+                             "Job submitted!", wx.OK)
+        d.ShowModal()
+        d.Destroy()
+
+        self.Close(True)
+
+    def OnCancel(self,e):
+        import sys
+
+        self.Close(True)
+        sys.exit()
+
+    def add_text_control(self, name, data, callback):
+        label = wx.StaticText(self, label=name)
+        ctrl  = wx.TextCtrl(self, value=data)
+        ctrl.Bind(wx.EVT_TEXT, callback)
+        self.fields.append([label, ctrl])
+
+    def handle_jobname(self, event):
+        control = event.GetEventObject()
+        self.options.jobname = control.GetValue() 
+        print self.options.jobname
