@@ -3,7 +3,8 @@
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper(add_wrapper_options, get_wrapper_cmdline)
+    PBSUtil.do_wrapper("Wrap PBS", add_wrapper_options, None,
+                       get_wrapper_cmdline)
 
 def add_wrapper_options(parser):
     from optparse import OptionGroup

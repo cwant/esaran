@@ -3,7 +3,8 @@
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper(add_gromacs_options, get_gromacs_cmdline)
+    PBSUtil.do_wrapper("Wrap Gromacs", add_gromacs_options, None,
+                       get_gromacs_cmdline)
 
 def add_gromacs_options(parser):
     from optparse import OptionGroup
