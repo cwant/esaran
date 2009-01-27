@@ -3,7 +3,8 @@
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper("Wrap PBS", add_wrapper_options, None,
+    PBSUtil.do_wrapper("Wrap PBS", add_wrapper_options,
+                       wrapper_gui_options,
                        get_wrapper_cmdline)
 
 def add_wrapper_options(parser):
@@ -19,6 +20,17 @@ def add_wrapper_options(parser):
     parser.add_option_group(g)
 
 def get_wrapper_cmdline(options, args):
-    return options.executable
+    return options["executable"]
+
+def wrapper_gui_options(subpanel, options):
+    import PBSUtil
+    title = "Program options"
+    fields = []
+    fields.append(PBSUtil.add_text_control(subpanel,
+                                           "executable",
+                                           "Executable:",
+                                           options))
+
+    return (title, fields)
 
 main()

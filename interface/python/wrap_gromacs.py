@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper("Wrap Gromacs", add_gromacs_options, None,
-                       get_gromacs_cmdline)
+    PBSUtil.do_wrapper("Wrap Gromacs", add_gromacs_options,
+                       gromacs_gui_options, get_gromacs_cmdline)
 
 def add_gromacs_options(parser):
     from optparse import OptionGroup
@@ -19,11 +20,22 @@ def add_gromacs_options(parser):
     parser.add_option_group(g)
 
 def get_gromacs_cmdline(options, args):
-    executable = "mdrun " + options.mdrun_args
+    executable = "mdrun " + options["mdrun_args"]
 
     return """\
 module load gromacs
 %(executable)s
 """ % (locals())
+
+def gromacs_gui_options(subpanel, options):
+    import PBSUtil
+    title = "Gromacs options"
+    fields = []
+    fields.append(PBSUtil.add_text_control(subpanel,
+                                           "mdrun_args",
+                                           "mdrun arguments:",
+                                           options))
+
+    return (title, fields)
 
 main()
