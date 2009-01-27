@@ -510,7 +510,7 @@ def add_buttons(panel, sizer):
 
 def OnSubmit(event):
     control = event.GetEventObject()
-    optwin =  control.GetParent()
+    optwin =  control.GetTopLevelParent()
 
     d= wx.MessageDialog( optwin, "Your job has been submitted",
                              "Job submitted!", wx.OK)
