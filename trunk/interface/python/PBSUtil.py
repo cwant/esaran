@@ -49,9 +49,10 @@ def do_wrapper(name, add_program_options,
         add_pbs_options(parser)
         add_ssh_options(parser)
         add_gui_options(parser)
-        (options, args) = parser.parse_args()
-        if (options.gui):
-            make_gui(name, config, options, args, add_gui_options)
+        (options_obj, args) = parser.parse_args()
+        options = obj_to_dict(options_obj)
+        if (options["gui"]):
+            make_gui(name, config, options, args, add_gui_controls)
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
@@ -80,6 +81,13 @@ def get_config():
 
     return config
 
+def obj_to_dict(options_obj):
+    options = dict()
+    for key, val in vars(options_obj).iteritems():
+        options[key] = val
+    print options
+    return options
+
 def load_program_args():
     # Load pickled command line options and positional args
     import pickle, sys
@@ -107,12 +115,12 @@ def add_pbs_options(parser):
     if (user):
         g.add_option("-u", "--user", action="store", type="string",
                      dest="user", metavar="USER", default=user,
-                     help="The user id user to login to " + \
+                     help="The user id used to login to " + \
                          "the HPC resourse (default: %default)")
     else:
         g.add_option("-u", "--user", action="store", type="string",
                      dest="user", metavar="USER",
-                     help="The user id user to login to " + \
+                     help="The user id used to login to " + \
                          "the HPC resourse")
 
     ### Email
@@ -213,8 +221,8 @@ def test_ssh_key(options):
     import subprocess
     exitcode = subprocess.call("ssh -o NumberOfPasswordPrompts=0 " + \
                                    "%s -l %s date" % \
-                                   (options.host,
-                                    options.user),
+                                   (options["host"],
+                                    options["user"]),
                                shell=True)
     if (exitcode):
         return 0
@@ -237,8 +245,8 @@ def set_up_ssh(options, args):
 
     # Check if there is an ssh-agent running -- if not, re-run self in
     # an agent.
-    if (options.key):
-        key = options.key
+    if (options["key"]):
+        key = options["key"]
     else:
         key = ""
 
@@ -277,9 +285,9 @@ For assistance, please contact research.support@ualberta.ca
 def submit_job(executable, config, options, args):
     import os
 
-    workdir  = "%s/%s_%d.tmp" % (options.dir, options.jobname,
+    workdir  = "%s/%s_%d.tmp" % (options["dir"], options["jobname"],
                                  os.getpid())
-    workfile = "%s_%d.tar.gz" % (options.jobname, os.getpid())
+    workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
     make_pbs_script(executable, workdir, config, options, args)
     tar_up_work(workfile, options)
@@ -288,31 +296,14 @@ def submit_job(executable, config, options, args):
     queue_pbs_script(workfile, workdir, options)
 
 ### Create PBS Script
-def options_to_dict(options):
-    # options is a class, but heredoc wants a dict for
-    # variable substitution, so convert some of the important
-    # fields.
-    optdict = dict({\
-            'user'       : options.user,
-            'host'       : options.host,
-            'jobname'    : options.jobname,
-            'pvmem'      : options.pvmem,
-            'nodes'      : options.nodes,
-            'ppn'        : options.ppn,
-            'walltime'   : options.walltime,
-            'notify'     : options.notify,
-            'email'      : options.email,
-            'dir'        : options.dir,
-            })
-    return optdict
-
 def make_pbs_script(executable, workdir, config, options, args):
     pbs = open("pbs_script.pbs", "w")
 
     # create dictionary of strings for heredoc substitutions
-    subs = options_to_dict(options)
+    subs = dict()
+    subs.update(options)
     subs.update(config)
-    subs.update(config['hosts'][options.host])
+    subs.update(config['hosts'][options["host"]])
     subs.update(args)
     subs['executable'] = executable
     subs['workdir']    = workdir 
@@ -424,7 +415,8 @@ def tar_up_work(workfile, options):
 
 def create_workdir(workdir, options):
     import subprocess
-    exitcode = subprocess.call("ssh %s@%s " % (options.user, options.host) +
+    exitcode = subprocess.call("ssh %s@%s " %
+                               (options["user"], options["host"]) +
                                "'mkdir -p %s; chmod o+r %s'" %
                                (workdir, workdir),
                                shell=True)
@@ -433,12 +425,13 @@ def transfer_workfile(workfile, workdir, options):
     import subprocess
     exitcode = subprocess.call("scp %s " % (workfile) +
                                "%s@%s:%s" %
-                               (options.user, options.host, workdir),
+                               (options["user"], options["host"], workdir),
                                shell=True)
 
 def queue_pbs_script(workfile, workdir, options):
     import subprocess
-    exitcode = subprocess.call("ssh %s@%s " % (options.user, options.host) +
+    exitcode = subprocess.call("ssh %s@%s " %
+                               (options["user"], options["host"]) +
                                "'cd %s; tar -xzvf %s; qsub pbs_script.pbs'" %
                                (workdir, workfile),
                                shell=True)
@@ -476,7 +469,7 @@ except:
 
 class OptionsWindow(wx.Frame):
     def __init__(self, parent, id, title,
-                 config, options, args, add_gui_options):
+                 config, options, args, app_gui_options):
 
         wx.Frame.__init__(self, parent, wx.ID_ANY, title)
 
@@ -485,59 +478,114 @@ class OptionsWindow(wx.Frame):
         self.options = options
         self.args    = args
 
-        ### Add Fields
-        self.fields = []
-        self.add_text_control("Jobname:",
-                              self.options.jobname,
-                              self.handle_jobname)
+        panel = wx.Panel(self, -1)
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.fields_sizer = wx.FlexGridSizer(rows=len(self.fields), cols=2, 
-                                             vgap=10, hgap=10)
+        if (app_gui_options):
+            add_options_panel(panel, sizer, options, app_gui_options)
 
-        for field in self.fields:
-            self.fields_sizer.Add(field[0], 2, wx.EXPAND)
-            self.fields_sizer.Add(field[1], 1, wx.EXPAND)
+        add_options_panel(panel, sizer, options, pbs_gui_options)
 
-        ### Add Buttons
-        self.buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.submit_button = wx.Button(self, label="Submit")
-        self.cancel_button = wx.Button(self, label="Cancel")
-        self.submit_button.Bind(wx.EVT_BUTTON, self.OnSubmit)
-        self.cancel_button.Bind(wx.EVT_BUTTON, self.OnCancel)
-        self.buttons_sizer.Add(self.submit_button,1,wx.EXPAND)
-        self.buttons_sizer.Add(self.cancel_button,1,wx.EXPAND)
+        add_buttons(panel, sizer)
 
-        ### Layout Sizers
-        self.sizer=wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.fields_sizer, 1,  wx.ALL, border=5)
-        self.sizer.Add(self.buttons_sizer, 0, wx.ALL|wx.EXPAND, border=5)
-        self.SetSizerAndFit(self.sizer)
-        #self.SetAutoLayout(1)
-        #self.sizer.Fit(self)
+        panel.SetSizerAndFit(sizer)
 
         self.Show(1)
 
-    def OnSubmit(self,e):
-        d= wx.MessageDialog( self, "Your job has been submitted",
+def add_buttons(panel, sizer):
+    subpanel = wx.Panel(panel, -1)
+
+    ### Add Buttons
+    buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
+    submit_button = wx.Button(subpanel, label="Submit")
+    cancel_button = wx.Button(subpanel, label="Cancel")
+    submit_button.Bind(wx.EVT_BUTTON, OnSubmit)
+    cancel_button.Bind(wx.EVT_BUTTON, OnCancel)
+    buttons_sizer.Add(submit_button,1,wx.EXPAND)
+    buttons_sizer.Add(cancel_button,1,wx.EXPAND)
+    subpanel.SetSizer(buttons_sizer)
+
+    sizer.Add(subpanel, 0, wx.ALL|wx.EXPAND, border=5)
+
+
+def OnSubmit(event):
+    control = event.GetEventObject()
+    optwin =  control.GetParent()
+
+    d= wx.MessageDialog( optwin, "Your job has been submitted",
                              "Job submitted!", wx.OK)
-        d.ShowModal()
-        d.Destroy()
+    d.ShowModal()
+    d.Destroy()
 
-        self.Close(True)
+    optwin.Close(True)
 
-    def OnCancel(self,e):
-        import sys
+def OnCancel(event):
+    import sys
 
-        self.Close(True)
-        sys.exit()
+    control = event.GetEventObject()
+    optwin =  control.GetTopLevelParent()
+    print     optwin.options
+    print     optwin.options["host"]
 
-    def add_text_control(self, name, data, callback):
-        label = wx.StaticText(self, label=name)
-        ctrl  = wx.TextCtrl(self, value=data)
-        ctrl.Bind(wx.EVT_TEXT, callback)
-        self.fields.append([label, ctrl])
+    optwin.Close(True)
+    sys.exit()
 
-    def handle_jobname(self, event):
-        control = event.GetEventObject()
-        self.options.jobname = control.GetValue() 
-        print self.options.jobname
+
+def add_options_panel(panel, sizer, options, get_gui_options):
+    ### Add Fields
+    subpanel = wx.Panel(panel, -1)
+
+    (title, fields) = get_gui_options(subpanel, options)
+    fields_sizer = wx.FlexGridSizer(rows=len(fields), cols=2, 
+                                    vgap=10, hgap=10)
+
+    for field in fields:
+        fields_sizer.Add(field[0], 2, wx.EXPAND)
+        fields_sizer.Add(field[1], 1, wx.EXPAND)
+
+    font = wx.Font(10, wx.DEFAULT, wx.NORMAL, wx.BOLD)
+    heading = wx.StaticText(subpanel, -1, title, style=wx.ALIGN_CENTRE)
+    heading.SetFont(font)
+
+    panel_sizer = wx.BoxSizer(wx.VERTICAL)
+
+    panel_sizer.Add(heading, 0, wx.ALL, border=5)
+    panel_sizer.Add(fields_sizer, 0, wx.ALL, border=5)
+    subpanel.SetSizer(panel_sizer)
+
+    sizer.Add(subpanel, 1,  wx.ALL, border=5)
+
+def pbs_gui_options(subpanel, options):
+    ### Add Fields
+    title = "PBS Options"
+    fields = []
+    fields.append(add_text_control(subpanel,
+                                   "host",
+                                   "Host:",
+                                   options))
+    fields.append(add_text_control(subpanel,
+                                   "jobname",
+                                   "Jobname:",
+                                   options))
+
+    return (title, fields)
+
+def handle_textctrl(event):
+    control = event.GetEventObject()
+    optwin  =  control.GetTopLevelParent()
+    name    = control.GetName()
+    optwin.options[name] = control.GetValue()
+
+def add_text_control(panel, name, label, options):
+    label = wx.StaticText(panel, label=label)
+    if (not options[name]):
+        options[name] = ""
+    ctrl  = wx.TextCtrl(panel, value=options[name], name=name)
+    
+    try:
+        callback = options['gui_callbacks'][name]
+    except:
+        callback = handle_textctrl
+
+    ctrl.Bind(wx.EVT_TEXT, callback)
+    return ([label, ctrl])
