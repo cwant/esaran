@@ -34,7 +34,7 @@ def gromacs_gui_options(subpanel, options):
     fields.append(PBSUtil.add_text_control(subpanel,
                                            "mdrun_args",
                                            "mdrun arguments:",
-                                           options))
+                                           width=30))
 
     return (title, fields)
 

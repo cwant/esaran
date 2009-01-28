@@ -33,7 +33,7 @@ def gamess_gui_options(subpanel, options):
     fields.append(PBSUtil.add_text_control(subpanel,
                                            "rungms_args",
                                            "rungms arguments:",
-                                           options))
+                                           width=30))
 
     return (title, fields)
 
