@@ -35,7 +35,8 @@ Helper module for executing PBS jobs remotely.
 ### Main Entry Point
 def do_wrapper(name, add_program_options,
                add_gui_controls, get_program_cmdline):
-    # add_program_options and get_program_cmdline are callbacks
+    # add_program_options() add_gui_controls(), and 
+    # get_program_cmdline() are callbacks
     import os, optparse
 
     config = get_config()
@@ -54,6 +55,8 @@ def do_wrapper(name, add_program_options,
         if (options["gui"]):
             make_gui(name, config, options, args, add_gui_controls)
 
+    validate_options(config, options)
+
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
     executable = get_program_cmdline(options, args)
@@ -62,19 +65,20 @@ def do_wrapper(name, add_program_options,
 ### Get Config
 
 def get_config():
-    aict_cluster = dict( {\
-        'mail_host' : "10.0.6.1",
-        'sendmail'  : "/usr/sbin/sendmail" } )
-    nexus = dict( {\
-        'mail_host' : None,
-        'sendmail'  : "/usr/lib/sendmail" } )
+    aict_cluster = dict( {
+            'mail_host' : "10.0.6.1",
+            'sendmail'  : "/usr/sbin/sendmail" } )
+    nexus = dict( {
+            'mail_host' : None,
+            'sendmail'  : "/usr/lib/sendmail" } )
 
-    hosts = dict( {\
-        'cluster.srv.ualberta.ca' : aict_cluster,
-        'nexus.westgrid.ca'       : nexus } )
+    hosts = dict( {
+            'cluster.srv.ualberta.ca' : aict_cluster,
+            'nexus.westgrid.ca'       : nexus } )
 
     config = dict( {\
         'hosts'            : hosts,
+        'validators'       : get_validators(),
         'webserver_site'   : "https://sciviz.nic.ualberta.ca/~cwant/hpc_web",
         'webserver_address': "cwant@sciviz.nic.ualberta.ca",
         'webserver_subject': "HPC output download ready" } )
@@ -85,7 +89,6 @@ def obj_to_dict(options_obj):
     options = dict()
     for key, val in vars(options_obj).iteritems():
         options[key] = val
-    print options
     return options
 
 def load_program_args():
@@ -146,7 +149,7 @@ def add_pbs_options(parser):
                      "(default: %default)")
 
     ### Job Name
-    g.add_option("-N", "--name", action="store", type="string",
+    g.add_option("-N", "--jobname", action="store", type="string",
                  dest="jobname", metavar="JOBNAME", default="job1",
                  help="The name of the job that is submitted to " + \
                      "the HPC resource (default: %default)")
@@ -252,7 +255,7 @@ def set_up_ssh(options, args):
 
     ssh_auth = os.getenv("SSH_AUTH_SOCK")
     if (not ssh_auth):
-        pipe = SubProcess.Popen("SSH_AGENT_RESPAWN=TRUE ssh-agent python %s"
+        pipe = subprocess.Popen("SSH_AGENT_RESPAWN=TRUE ssh-agent python %s"
                                 % sys.argv[0],
                                 stdin=SubProcess.PIPE, shell=True);
         pickle.dump(options, pipe.stdin)
@@ -265,7 +268,7 @@ def set_up_ssh(options, args):
     if (ssh_need_key(options)):
         # Key needed, so try to add key, note that the variable
         # $key will be empty unless the user used -k
-        SubProcess.call("ssh-add %s > /dev/null" % (key), shell=True);
+        subprocess.call("ssh-add %s > /dev/null" % (key), shell=True);
 
         # Try again to see if the key worked
         if ( not test_ssh_key() ):
@@ -472,6 +475,7 @@ class OptionsWindow(wx.Frame):
                  config, options, args, app_gui_options):
 
         wx.Frame.__init__(self, parent, wx.ID_ANY, title)
+        self.Bind(wx.EVT_CLOSE, OnCancel)
 
         self.name    = title
         self.config  = config
@@ -489,13 +493,14 @@ class OptionsWindow(wx.Frame):
         add_buttons(panel, sizer)
 
         panel.SetSizerAndFit(sizer)
-
+        panel.SetAutoLayout(True) 
+        panel.Fit()
+        self.Fit()
         self.Show(1)
 
 def add_buttons(panel, sizer):
     subpanel = wx.Panel(panel, -1)
 
-    ### Add Buttons
     buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
     submit_button = wx.Button(subpanel, label="Submit")
     cancel_button = wx.Button(subpanel, label="Cancel")
@@ -517,22 +522,19 @@ def OnSubmit(event):
     d.ShowModal()
     d.Destroy()
 
-    optwin.Close(True)
+    optwin.Destroy()
 
 def OnCancel(event):
     import sys
 
     control = event.GetEventObject()
     optwin =  control.GetTopLevelParent()
-    print     optwin.options
-    print     optwin.options["host"]
 
-    optwin.Close(True)
+    optwin.Destroy()
     sys.exit()
 
 
 def add_options_panel(panel, sizer, options, get_gui_options):
-    ### Add Fields
     subpanel = wx.Panel(panel, -1)
 
     (title, fields) = get_gui_options(subpanel, options)
@@ -553,39 +555,141 @@ def add_options_panel(panel, sizer, options, get_gui_options):
     panel_sizer.Add(fields_sizer, 0, wx.ALL, border=5)
     subpanel.SetSizer(panel_sizer)
 
-    sizer.Add(subpanel, 1,  wx.ALL, border=5)
+    sizer.Add(subpanel, 0,  wx.ALL, border=5)
 
 def pbs_gui_options(subpanel, options):
-    ### Add Fields
     title = "PBS Options"
+    optwin  =  subpanel.GetTopLevelParent()
+    config  = optwin.config
+    hosts = config["hosts"].keys()
     fields = []
+    fields.append(add_combo_control(subpanel,
+                                    "host",
+                                    "Host:",
+                                    hosts))
     fields.append(add_text_control(subpanel,
-                                   "host",
-                                   "Host:",
-                                   options))
+                                   "user",
+                                   "User:",
+                                   width=10))
+    fields.append(add_text_control(subpanel,
+                                   "email",
+                                   "Email:"))
+    fields.append(add_text_control(subpanel,
+                                   "notify",
+                                   "Notify:",
+                                   width=5))
     fields.append(add_text_control(subpanel,
                                    "jobname",
-                                   "Jobname:",
-                                   options))
+                                   "Job name:",
+                                   width=30))
+    fields.append(add_text_control(subpanel,
+                                   "pvmem",
+                                   "Memory required:"))
+    fields.append(add_spin_control(subpanel,
+                                  "nodes",
+                                  "Number of nodes:"))
+    fields.append(add_spin_control(subpanel,
+                                  "ppn",
+                                  "Processors per node:"))
+    fields.append(add_text_control(subpanel,
+                                   "walltime",
+                                   "Wall time:"))
+    fields.append(add_text_control(subpanel,
+                                   "dir",
+                                   "Remote work directory:"))
 
     return (title, fields)
 
-def handle_textctrl(event):
+def handle_ctrl(event):
     control = event.GetEventObject()
-    optwin  =  control.GetTopLevelParent()
+    optwin  = control.GetTopLevelParent()
+    options = optwin.options
+    config  = optwin.config
     name    = control.GetName()
-    optwin.options[name] = control.GetValue()
+    value   = control.GetValue()
 
-def add_text_control(panel, name, label, options):
+    try:
+        validator = config["validators"][name]
+        optwin.options = validator(config, options, value)
+    except:
+        optwin.options[name] = value
+
+def add_text_control(panel, name, label, width=None):
+    optwin  = panel.GetTopLevelParent()
+    options = optwin.options
+    config  = optwin.config
+
     label = wx.StaticText(panel, label=label)
     if (not options[name]):
         options[name] = ""
     ctrl  = wx.TextCtrl(panel, value=options[name], name=name)
-    
-    try:
-        callback = options['gui_callbacks'][name]
-    except:
-        callback = handle_textctrl
 
-    ctrl.Bind(wx.EVT_TEXT, callback)
+    if (width):
+        dc=wx.ScreenDC()
+        # dc.SetFont(font)
+        (x,y) = dc.GetTextExtent("T")
+        ctrl.SetMinSize((x * width + 10, -1))
+        ctrl.SetMaxSize((x * width + 10, -1))
+
+    ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
     return ([label, ctrl])
+
+def add_combo_control(panel, name, label, choices, width=None):
+    optwin  = panel.GetTopLevelParent()
+    options = optwin.options
+    config  = optwin.config
+
+    label = wx.StaticText(panel, label=label)
+    if (not options[name]):
+        options[name] = ""
+    ctrl  = wx.ComboBox(panel, value=options[name], name=name,
+                        choices=choices)
+
+    if (width):
+        dc=wx.ScreenDC()
+        # dc.SetFont(font)
+        (x,y) = dc.GetTextExtent("T")
+        ctrl.SetMinSize((x * width + 10, -1))
+        ctrl.SetMaxSize((x * width + 10, -1))
+
+    ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
+    return ([label, ctrl])
+
+def add_spin_control(panel, name, label):
+    optwin  = panel.GetTopLevelParent()
+    options = optwin.options
+    config  = optwin.config
+
+    print name
+    label = wx.StaticText(panel, label=label)
+    if (not options[name]):
+        options[name] = 0
+    ctrl  = wx.SpinCtrl(panel, initial=options[name], name=name)
+    
+    ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
+    return ([label, ctrl])
+
+### Validators
+
+def get_validators():
+    validators = dict( {
+            'host' : validate_host
+            } )
+    return validators
+
+
+def validate_options(config, options):
+    for name, validator in config["validators"].iteritems():
+        value = options[name]
+        validator(config, options, value)
+
+def validate_host(config, options, value):
+    if (value not in config["hosts"].keys()):
+        import sys
+        print("Bad host name! (%s)" % (value))
+        print("Host name must be one of:")
+        for host in config["hosts"].keys():
+            print("   %s" % (host))
+        sys.exit(1)
+
+    return value
