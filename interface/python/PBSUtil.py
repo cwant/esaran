@@ -47,8 +47,8 @@ def do_wrapper(name, add_program_options,
     else:
         parser = optparse.OptionParser()
         add_program_options(parser)
+        add_account_options(parser)
         add_pbs_options(parser)
-        add_ssh_options(parser)
         add_gui_options(parser)
         (options_obj, args) = parser.parse_args()
         options = obj_to_dict(options_obj)
@@ -100,12 +100,11 @@ def load_program_args():
 
     return (options, args)
 
-def add_pbs_options(parser):
-    from optparse import OptionGroup
-    from os import getenv
+def add_account_options(parser):
+    import os, optparse
 
-    g = OptionGroup(parser, "Job Scheduling options")
-    user = getenv("USER")
+    g = optparse.OptionGroup(parser, "Account options")
+    user = os.getenv("USER")
 
     ### Host
     g.add_option("-H", "--host", action="store", type="string",
@@ -125,6 +124,19 @@ def add_pbs_options(parser):
                      dest="user", metavar="USER",
                      help="The user id used to login to " + \
                          "the HPC resourse")
+
+    ### Key
+    g.add_option("-k", "--key", action="store", type="string",
+                 dest="key", metavar="KEY",
+                 help="Use or specify an ssh key")
+    
+    parser.add_option_group(g)
+
+def add_pbs_options(parser):
+    import os, optparse
+
+    g = optparse.OptionGroup(parser, "Job Scheduling options")
+    user = os.getenv("USER")
 
     ### Email
     if (user):
@@ -198,18 +210,6 @@ def add_pbs_options(parser):
 
 
 ### SSH Routines ###################################
-
-def add_ssh_options(parser):
-    import optparse
-
-    g = optparse.OptionGroup(parser, "SSH options")
-
-    ### Key
-    g.add_option("-k", "--key", action="store", type="string",
-                 dest="key", metavar="KEY",
-                 help="Use or specify an ssh key")
-    
-    parser.add_option_group(g)
 
 def ssh_keys_loaded():
     import subprocess
@@ -437,6 +437,13 @@ def queue_pbs_script(workfile, workdir, options):
                                (options["user"], options["host"]) +
                                "'cd %s; tar -xzvf %s; qsub pbs_script.pbs'" %
                                (workdir, workfile),
+                               shell=True)
+
+def run_qstat(options):
+    import subprocess
+    exitcode = subprocess.call("ssh %s@%s " %
+                               (options["user"], options["host"]) +
+                               "'qstat'",
                                shell=True)
 
 
