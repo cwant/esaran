@@ -29,9 +29,9 @@
 # Contributors: Chris Want (University of Alberta),
 #
 
-prog_title       = "Wrap GAMESS"
-options_title    = "GAMESS options"
-prog_name        = "rungms"
+prog_title       = "Wrap Gaussian"
+options_title    = "Gaussian options"
+prog_name        = "g03"
 run_string       = """\
 module load gaussian
 %(executable)s
