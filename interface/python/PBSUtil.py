@@ -667,7 +667,6 @@ def add_spin_control(panel, name, label):
     options = optwin.options
     config  = optwin.config
 
-    print name
     label = wx.StaticText(panel, label=label)
     if (not options[name]):
         options[name] = 0
