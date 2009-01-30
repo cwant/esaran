@@ -49,12 +49,13 @@ def main():
                        program_gui_options, get_program_cmdline)
 
 def add_program_options(parser):
-    from optparse import OptionGroup
+    import PBSUtil, optparse
 
-    g = OptionGroup(parser, options_title)
+    g = optparse.OptionGroup(parser, options_title)
 
     ### Executable
-    g.add_option("-a", "--args", action="store", type="string",
+    g.add_option("-a", "--args", action="callback",
+                 callback=PBSUtil.store_seen, type="string",
                  dest=args_name, metavar="OPTIONS",
                  help=args_help)
 
