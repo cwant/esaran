@@ -46,12 +46,13 @@ def main():
                        get_wrapper_cmdline)
 
 def add_wrapper_options(parser):
-    from optparse import OptionGroup
+    import PBSUtil, optparse 
 
-    g = OptionGroup(parser, options_title)
+    g = optparse.OptionGroup(parser, options_title)
 
     ### Executable
-    g.add_option("-x", "--exe", action="store", type="string",
+    g.add_option("-x", "--exe", action="callback",
+                 callback=PBSUtil.store_seen, type="string",
                  dest=program, metavar=metavar,
                  help=help)
 

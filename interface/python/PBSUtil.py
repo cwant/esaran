@@ -49,13 +49,21 @@ def do_wrapper(name, add_program_options,
         add_program_options(parser)
         add_account_options(parser)
         add_pbs_options(parser)
-        add_gui_options(parser)
+        add_execution_options(parser)
+
+        parser.seen = dict()
         (options_obj, args) = parser.parse_args()
         options = obj_to_dict(options_obj)
+        seen    = parser.seen
+
+        if (options["load_options"]):
+            load_merge_options(options, options["load_options"], seen)
         if (options["gui"]):
             make_gui(name, config, options, args, add_gui_controls)
 
     validate_options(config, options)
+    if (options["save_options"]):
+        save_options(options, options["save_options"])
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
@@ -100,6 +108,45 @@ def load_program_args():
 
     return (options, args)
 
+def load_merge_options(options, file, seen=None):
+    # Load pickled command line options and positional args
+    import pickle
+
+    try:
+        f = open(file, "rb")
+    except:
+        sys.stderr.write("Unable to open file for loading!\n")
+        sys.exit(1)
+
+    optload = pickle.load(f)
+    f.close()
+
+    for key, value in optload.iteritems():
+        if seen:
+            if not seen.has_key(key):
+                options[key] = value
+        else:
+            options[key] = value
+
+def save_options(options, file):
+    import pickle, sys
+    try:
+        f = open(file, "wb")
+    except:
+        sys.stderr.write("Unable to open file for saving!\n")
+        sys.exit(1)
+
+    pickle.dump(options, f)
+    f.close()
+
+def store_seen(option, opt_str, value, parser):
+    setattr(parser.values, option.dest, value)
+    parser.seen[option.dest] = True
+
+def store_true_seen(option, opt_str, value, parser):
+    setattr(parser.values, option.dest, True)
+    parser.seen[option.dest] = True
+
 def add_account_options(parser):
     import os, optparse
 
@@ -107,7 +154,8 @@ def add_account_options(parser):
     user = os.getenv("USER")
 
     ### Host
-    g.add_option("-H", "--host", action="store", type="string",
+    g.add_option("-H", "--host", action="callback",
+                 callback=store_seen, type="string",
                  dest="host", metavar="HOST",
                  default="cluster.srv.ualberta.ca",
                  help="The name of the host the job will run on " + \
@@ -115,18 +163,21 @@ def add_account_options(parser):
     
     ### Username
     if (user):
-        g.add_option("-u", "--user", action="store", type="string",
+        g.add_option("-u", "--user", action="callback",
+                     callback=store_seen, type="string",
                      dest="user", metavar="USER", default=user,
                      help="The user id used to login to " + \
                          "the HPC resourse (default: %default)")
     else:
-        g.add_option("-u", "--user", action="store", type="string",
+        g.add_option("-u", "--user", action="callback",
+                     callback=store_seen, type="string",
                      dest="user", metavar="USER",
                      help="The user id used to login to " + \
                          "the HPC resourse")
 
     ### Key
-    g.add_option("-k", "--key", action="store", type="string",
+    g.add_option("-k", "--key", action="callback",
+                 callback=store_seen, type="string",
                  dest="key", metavar="KEY",
                  help="Use or specify an ssh key")
     
@@ -140,20 +191,23 @@ def add_pbs_options(parser):
 
     ### Email
     if (user):
-        g.add_option("-e", "--email", action="store", type="string",
+        g.add_option("-e", "--email", action="callback",
+                     callback=store_seen, type="string",
                      dest="email", metavar="USER@EXAMPLE.COM",
                      default=user + "@ualberta.ca",
                      help="The email address for notifications about " + \
                          "errors and job completion " + \
                          "(default: %default)")
     else:
-        g.add_option("-e", "--email", action="store", type="string",
+        g.add_option("-e", "--email", action="callback",
+                     callback=store_seen, type="string",
                      dest="email", metavar="EMAIL@foo.com",
                      help="The email address for notifications about " + \
                          "errors and job completion")
 
     ### Notify
-    g.add_option("-E", "--notify", action="store", type="string",
+    g.add_option("-E", "--notify", action="callback",
+                 callback=store_seen, type="string",
                  dest="notify", metavar="[b][e][a]",
                  default="bea",
                  help="Email notifications before (b) the job runs, " + \
@@ -161,45 +215,52 @@ def add_pbs_options(parser):
                      "(default: %default)")
 
     ### Job Name
-    g.add_option("-N", "--jobname", action="store", type="string",
+    g.add_option("-N", "--jobname", action="callback",
+                 callback=store_seen, type="string",
                  dest="jobname", metavar="JOBNAME", default="job1",
                  help="The name of the job that is submitted to " + \
                      "the HPC resource (default: %default)")
 
     ### Memory Requirements
-    g.add_option("-m", "--pvmem", action="store", type="string",
+    g.add_option("-m", "--pvmem", action="callback",
+                 callback=store_seen, type="string",
                  dest="pvmem", metavar="MEMORY", default="512mb",
                  help="The s ze of memory required " + \
                      "(default: %default)")
 
     ### Nodes
-    g.add_option("-n", "--nodes", action="store", type="int",
+    g.add_option("-n", "--nodes", action="callback",
+                 callback=store_seen, type="int",
                  dest="nodes", metavar="NODES", default="1",
                  help="The number of nodes required " + \
                      "(default: %default)")
 
     ### Processors per node
-    g.add_option("-p", "--ppn", action="store", type="int",
+    g.add_option("-p", "--ppn", action="callback",
+                 callback=store_seen, type="int",
                  dest="ppn", metavar="PROCPERNODE", default="1",
                  help="The number of processors per node required" +
                      "(default: %default)")
 
     ### Wall time
-    g.add_option("-w", "--walltime", action="store", type="string",
+    g.add_option("-w", "--walltime", action="callback",
+                 callback=store_seen, type="string",
                  dest="walltime", metavar="WALLTIME", default="24:00:00",
                  help="The maximum time required to run the job " +
-                     "(default: %default)")
+                 "(default: %default)")
 
     ### Work directory
     if (user):
-        g.add_option("-d", "--dir", action="store", type="string",
+        g.add_option("-d", "--dir", action="callback",
+                 callback=store_seen, type="string",
                      dest="dir", metavar="DIRECTORY",
                      default="/scratch/" + user,
                      help="The directory on the HPC resource under which " + \
                          "a temporary work directory will be created " + \
                          "(default: %default)")
     else:
-        g.add_option("-d", "--dir", action="store", type="string",
+        g.add_option("-d", "--dir", action="callback",
+                     callback=store_seen, type="string",
                      dest="dir", metavar="DIRECTORY",
                      help="The directory on the HPC resource under which " + \
                          "a temporary work directory will be created")
@@ -447,18 +508,30 @@ def run_qstat(options):
                                shell=True)
 
 
-### GUI ############################################################
-
-def add_gui_options(parser):
+def add_execution_options(parser):
     import optparse
 
-    g = optparse.OptionGroup(parser, "GUI options")
+    g = optparse.OptionGroup(parser, "Execution options")
 
     ### Key
-    g.add_option("-g", "--gui", action="store_true", dest="gui",
+    g.add_option("-g", "--gui", action="callback",
+                 callback=store_true_seen, dest="gui",
                  help="Spawn wxPython GUI", default=False)
+
+    g.add_option("-l", "--load-options", action="callback",
+                 callback=store_seen, type="string",
+                 dest="load_options", metavar="FILE", default="",
+                 help="Load options (except those currently on the " + \
+                     "commandline) from a file")
+
+    g.add_option("-s", "--save-options", action="callback",
+                 callback=store_seen, type="string",
+                 dest="save_options", metavar="FILE", default="",
+                 help="Save options to a file")
     
     parser.add_option_group(g)
+
+### GUI ############################################################
 
 def make_gui(name, config, options, args, add_gui_options):
     import sys
