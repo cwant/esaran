@@ -562,6 +562,10 @@ class OptionsWindow(wx.Frame):
         self.options = options
         self.args    = args
 
+        self.text_controls = []
+        self.combo_controls = []
+        self.spin_controls = []
+
         panel = wx.Panel(self, -1)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -582,27 +586,76 @@ def add_buttons(panel, sizer):
     subpanel = wx.Panel(panel, -1)
 
     buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
-    submit_button = wx.Button(subpanel, label="Submit")
+    load_button   = wx.Button(subpanel, label="Load Options")
+    save_button   = wx.Button(subpanel, label="Save Options")
     cancel_button = wx.Button(subpanel, label="Cancel")
-    submit_button.Bind(wx.EVT_BUTTON, OnSubmit)
+    submit_button = wx.Button(subpanel, label="Submit")
+
+    load_button.Bind(wx.EVT_BUTTON, OnLoad)
+    save_button.Bind(wx.EVT_BUTTON, OnSave)
     cancel_button.Bind(wx.EVT_BUTTON, OnCancel)
-    buttons_sizer.Add(submit_button,1,wx.EXPAND)
+    submit_button.Bind(wx.EVT_BUTTON, OnSubmit)
+
+    buttons_sizer.Add(load_button,1,wx.EXPAND)
+    buttons_sizer.Add(save_button,1,wx.EXPAND)
     buttons_sizer.Add(cancel_button,1,wx.EXPAND)
+    buttons_sizer.Add(submit_button,1,wx.EXPAND)
+
     subpanel.SetSizer(buttons_sizer)
 
     sizer.Add(subpanel, 0, wx.ALL|wx.EXPAND, border=5)
 
+# store the directory name in case of multiple load, save
+dirname = ""
+filename = ""
 
-def OnSubmit(event):
+def OnSave(event):
+    import os
+    global dirname, filename
+
     control = event.GetEventObject()
     optwin =  control.GetTopLevelParent()
+    options = optwin.options
 
-    d= wx.MessageDialog( optwin, "Your job has been submitted",
-                             "Job submitted!", wx.OK)
-    d.ShowModal()
-    d.Destroy()
+    dlg = wx.FileDialog(optwin, "Choose a file", dirname, filename, "*.*",
+                        wx.SAVE | wx.OVERWRITE_PROMPT)
+    if dlg.ShowModal() == wx.ID_OK:
 
-    optwin.Destroy()
+        filename=dlg.GetFilename()
+        dirname=dlg.GetDirectory()
+        save_options(options,
+                     os.path.join(dirname, filename))
+
+    dlg.Destroy()
+
+def OnLoad(event):
+    import os
+    global dirname, filename
+
+    control = event.GetEventObject()
+    optwin =  control.GetTopLevelParent()
+    options = optwin.options
+
+    dlg = wx.FileDialog(optwin, "Choose a file", dirname, filename, "*.*",
+                        wx.OPEN)
+    if dlg.ShowModal() == wx.ID_OK:
+
+        filename=dlg.GetFilename()
+        dirname=dlg.GetDirectory()
+        load_merge_options(options,
+                           os.path.join(dirname, filename))
+        update_controls(optwin)
+
+    dlg.Destroy()
+
+def update_controls(optwin):
+    options = optwin.options
+    ctrls = optwin.text_controls + optwin.spin_controls + \
+        optwin.combo_controls
+    for ctrl in ctrls:
+        name = ctrl.GetName()
+        if (options.has_key(name)):
+            ctrl.SetValue(options[name])
 
 def OnCancel(event):
     import sys
@@ -613,6 +666,11 @@ def OnCancel(event):
     optwin.Destroy()
     sys.exit()
 
+def OnSubmit(event):
+    control = event.GetEventObject()
+    optwin =  control.GetTopLevelParent()
+
+    optwin.Destroy()
 
 def add_options_panel(panel, sizer, options, get_gui_options):
     subpanel = wx.Panel(panel, -1)
@@ -712,6 +770,8 @@ def add_text_control(panel, name, label, width=None):
         ctrl.SetMaxSize((x * width + 10, -1))
 
     ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
+    optwin.text_controls.append(ctrl)
+
     return ([label, ctrl])
 
 def add_combo_control(panel, name, label, choices, width=None):
@@ -733,6 +793,8 @@ def add_combo_control(panel, name, label, choices, width=None):
         ctrl.SetMaxSize((x * width + 10, -1))
 
     ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
+    optwin.combo_controls.append(ctrl)
+
     return ([label, ctrl])
 
 def add_spin_control(panel, name, label):
@@ -746,6 +808,8 @@ def add_spin_control(panel, name, label):
     ctrl  = wx.SpinCtrl(panel, initial=options[name], name=name)
     
     ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
+    optwin.spin_controls.append(ctrl)
+
     return ([label, ctrl])
 
 ### Validators
