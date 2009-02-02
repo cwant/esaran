@@ -332,7 +332,7 @@ def set_up_ssh(options, args):
         subprocess.call("ssh-add %s > /dev/null" % (key), shell=True);
 
         # Try again to see if the key worked
-        if ( not test_ssh_key() ):
+        if ( not test_ssh_key(options) ):
             # Key didn't work, so educate the user ...
             print("""\
 -------------------------------------------------------------------------
