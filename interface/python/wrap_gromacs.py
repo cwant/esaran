@@ -29,52 +29,19 @@
 # Contributors: Chris Want (University of Alberta),
 #
 
-prog_title       = "Wrap Gromacs"
-options_title    = "Gromacs options"
-prog_name        = "mdrun"
-run_string       = """\
-module load gromacs
-%(executable)s
-"""
-
-args_name        = prog_name + "_args"
-gui_args_heading = prog_name +" arguments:"
-gui_width        = 30
-args_help        = "Arguments to be passed to the %s program" % (prog_name)
-
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper(prog_title, add_program_options,
-                       program_gui_options, get_program_cmdline)
-
-def add_program_options(parser):
-    import PBSUtil, optparse
-
-    g = optparse.OptionGroup(parser, options_title)
-
-    ### Executable
-    g.add_option("-a", "--args", action="callback",
-                 callback=PBSUtil.store_seen, type="string",
-                 dest=args_name, metavar="OPTIONS",
-                 help=args_help)
-
-    parser.add_option_group(g)
-
-def get_program_cmdline(options, args):
-    executable = "%s %s" % (prog_name, options[args_name])
-
-    return run_string % (locals())
-
-def program_gui_options(subpanel, options):
-    import PBSUtil
-    title = options_title
-    fields = []
-    fields.append(PBSUtil.add_text_control(subpanel,
-                                           args_name,
-                                           gui_args_heading,
-                                           width=gui_width))
-
-    return (title, fields)
+    wrapper_title    = "Wrap Gromacs"
+    options_title    = "Gromacs options"
+    prog_name        = "mdrun"
+    run_string       = """\
+module load gromacs
+%(executable)s
+"""
+    PBSUtil.generic_wrapper(wrapper_title,
+                            options_title,
+                            prog_name,
+                            run_string)
 
 main()
