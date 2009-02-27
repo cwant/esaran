@@ -29,7 +29,7 @@
 # Contributors: Chris Want (University of Alberta),
 #
 
-prog_title       = "Wrap PBS"
+wrapper_title    = "Wrap PBS"
 options_title    = "Program options"
 
 program          = "executable"
@@ -41,9 +41,13 @@ help             = help="The name and arguments of the program to run"
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper(prog_title, add_wrapper_options,
-                       wrapper_gui_options,
-                       get_wrapper_cmdline)
+    PBSUtil.do_wrapper(wrapper_title,
+                       get_wrapper_cmdline
+                       add_wrapper_options,
+                       wrapper_gui_options)
+
+def get_wrapper_cmdline(options, args):
+    return options[program]
 
 def add_wrapper_options(parser):
     import PBSUtil, optparse 
@@ -57,9 +61,6 @@ def add_wrapper_options(parser):
                  help=help)
 
     parser.add_option_group(g)
-
-def get_wrapper_cmdline(options, args):
-    return options[program]
 
 def wrapper_gui_options(subpanel, options):
     import PBSUtil

@@ -33,20 +33,27 @@ Helper module for executing PBS jobs remotely.
 """
 
 ### Main Entry Point
-def do_wrapper(name, add_program_options,
-               add_gui_controls, get_program_cmdline):
-    # add_program_options() add_gui_controls(), and 
-    # get_program_cmdline() are callbacks
+def do_wrapper(wrapper_title,
+               get_wrapper_cmdline,
+               add_wrapper_options=None,
+               wrapper_gui_options=None,
+               add_wrapper_validators=None):
+    # add_wrapper_options() add_gui_controls(), and 
+    # get_wrapper_cmdline() are callbacks
     import os, optparse
 
     config = get_config()
 
+    if (add_wrapper_validators):
+        add_wrapper_validators(config)
+
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
-        (options, args) = load_program_args()
+        (options, args) = load_wrapper_args()
     else:
         parser = optparse.OptionParser()
-        add_program_options(parser)
+        if (add_wrapper_options):
+            add_wrapper_options(parser)
         add_account_options(parser)
         add_pbs_options(parser)
         add_execution_options(parser)
@@ -59,7 +66,7 @@ def do_wrapper(name, add_program_options,
         if (options["load_options"]):
             load_merge_options(options, options["load_options"], seen)
         if (options["gui"]):
-            make_gui(name, config, options, args, add_gui_controls)
+            make_gui(wrapper_title, config, options, args, wrapper_gui_options)
 
     validate_options(config, options)
     if (options["save_options"]):
@@ -67,7 +74,7 @@ def do_wrapper(name, add_program_options,
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
-    executable = get_program_cmdline(options, args)
+    executable = get_wrapper_cmdline(options, args)
     submit_job(executable, config, options, args)
 
 ### Get Config
@@ -99,7 +106,7 @@ def obj_to_dict(options_obj):
         options[key] = val
     return options
 
-def load_program_args():
+def load_wrapper_args():
     # Load pickled command line options and positional args
     import pickle, sys
 
@@ -533,7 +540,7 @@ def add_execution_options(parser):
 
 ### GUI ############################################################
 
-def make_gui(name, config, options, args, add_gui_options):
+def make_gui(name, config, options, args, wrapper_gui_options):
     import sys
     try:
         import wx
@@ -542,7 +549,7 @@ def make_gui(name, config, options, args, add_gui_options):
 
     app = wx.PySimpleApp()
     frame = OptionsWindow(None, -1, name, 
-                          config, options, args, add_gui_options)
+                          config, options, args, wrapper_gui_options)
     app.MainLoop()
 
 try:
@@ -552,7 +559,7 @@ except:
 
 class OptionsWindow(wx.Frame):
     def __init__(self, parent, id, title,
-                 config, options, args, app_gui_options):
+                 config, options, args, wrapper_gui_options):
 
         wx.Frame.__init__(self, parent, wx.ID_ANY, title)
         self.Bind(wx.EVT_CLOSE, OnCancel)
@@ -569,8 +576,8 @@ class OptionsWindow(wx.Frame):
         panel = wx.Panel(self, -1)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        if (app_gui_options):
-            add_options_panel(panel, sizer, options, app_gui_options)
+        if (wrapper_gui_options):
+            add_options_panel(panel, sizer, options, wrapper_gui_options)
 
         add_options_panel(panel, sizer, options, pbs_gui_options)
 
@@ -836,3 +843,58 @@ def validate_host(config, options, value):
         sys.exit(1)
 
     return value
+
+### Generic Wrappers
+
+generic = dict()
+
+def generic_wrapper(wrapper_title,
+                    options_title,
+                    prog_name,
+                    run_string):
+    global generic
+
+    generic["wrapper_title"] = wrapper_title
+    generic["options_title"] = options_title
+    generic["prog_name"]     = prog_name
+    generic["run_string"]    = run_string
+    generic["args_name"]     = prog_name + "_args"
+    generic["gui_heading"]   = prog_name +" arguments:"
+    generic["gui_width"]     = 30
+    generic["args_help"]     = \
+        "Arguments to be passed to the %s program" % (prog_name)
+
+    do_wrapper(wrapper_title,
+               get_generic_cmdline,
+               add_generic_options,
+               generic_gui_options)
+
+def get_generic_cmdline(options, args):
+    executable = "%s %s" % (generic["prog_name"],
+                            options[generic["args_name"]])
+
+    return generic["run_string"] % (locals())
+
+def add_generic_options(parser):
+    import PBSUtil, optparse
+
+    g = optparse.OptionGroup(parser, generic["options_title"])
+
+    ### Executable
+    g.add_option("-a", "--args", action="callback",
+                 callback=PBSUtil.store_seen, type="string",
+                 dest=generic["args_name"], metavar="OPTIONS",
+                 help=generic["args_help"])
+
+    parser.add_option_group(g)
+
+def generic_gui_options(subpanel, options):
+    import PBSUtil
+    title = generic["options_title"]
+    fields = []
+    fields.append(PBSUtil.add_text_control(subpanel,
+                                           generic["args_name"],
+                                           generic["gui_heading"],
+                                           width=generic["gui_width"]))
+
+    return (title, fields)
