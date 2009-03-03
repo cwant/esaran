@@ -80,16 +80,48 @@ def do_wrapper(wrapper_title,
 ### Get Config
 
 def get_config():
-    aict_cluster = dict( {
-            'mail_host' : "10.0.6.1",
-            'sendmail'  : "/usr/sbin/sendmail" } )
-    nexus = dict( {
-            'mail_host' : None,
-            'sendmail'  : "/usr/lib/sendmail" } )
+    import os, sys
+    from xml.dom import minidom
 
-    hosts = dict( {
-            'cluster.srv.ualberta.ca' : aict_cluster,
-            'nexus.westgrid.ca'       : nexus } )
+    config = os.path.dirname(__file__) + "/hosts.conf"
+    dom = minidom.parse(config)
+
+    hosts = dict()
+
+    hs = dom.getElementsByTagName("host")
+    for h in hs:
+        host = dict()
+
+        # Hostname
+        node = h.getElementsByTagName("name")
+        if node:
+            name = node[0].childNodes[0].data
+            host["name"] = name
+            hosts[name] = host
+        # Sendmail
+        node = h.getElementsByTagName("sendmail")
+        if node:
+            sendmail = node[0].childNodes[0].data
+            host["sendmail"] = sendmail
+        # Mailhost
+        node = h.getElementsByTagName("mail_host")
+        if node:
+            mail_host = node[0].childNodes[0].data
+            host["mail_host"] = mail_host
+        else:
+            host["mail_host"] = None
+        # Queues
+        qs = h.getElementsByTagName("queue")
+        queues = []
+        host["queues"] = queues
+        for q in qs:
+            queue = dict()
+            node = q.getElementsByTagName("name")
+            if node:
+                name = node[0].childNodes[0].data
+                queue["name"] = name
+                queues.append(queue)
+    dom.unlink()
 
     config = dict( {\
         'hosts'            : hosts,
