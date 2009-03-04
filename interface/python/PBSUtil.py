@@ -83,6 +83,7 @@ def get_config():
     import os, sys
     from xml.dom import minidom
 
+    # Read host config from XML file
     config = os.path.dirname(__file__) + "/hosts.conf"
     dom = minidom.parse(config)
 
@@ -98,11 +99,24 @@ def get_config():
             name = node[0].childNodes[0].data
             host["name"] = name
             hosts[name] = host
+        else:
+            print "Host must have a name!"
+            sys.exit(1)
+
         # Sendmail
         node = h.getElementsByTagName("sendmail")
         if node:
             sendmail = node[0].childNodes[0].data
             host["sendmail"] = sendmail
+        else:
+            host["sendmail"] = None
+        # Tar
+        node = h.getElementsByTagName("tar")
+        if node:
+            tar = node[0].childNodes[0].data
+            host["tar"] = tar
+        else:
+            host["tar"] = None
         # Mailhost
         node = h.getElementsByTagName("mail_host")
         if node:
@@ -123,6 +137,24 @@ def get_config():
                 queues.append(queue)
     dom.unlink()
 
+    # Grab missing host attributes from the host called "default"
+    default = hosts["default"]
+    for key in default:
+        if default[key]:
+            for name in hosts:
+                if not hosts[name][key]:
+                    hosts[name][key] = default[key]
+
+    #for host in hosts:
+    #    if host["name"] != "default":
+    #        if not host["sendmail"]:
+    #            if hosts["default"]["sendmail"]:
+    #                host["sendmail"] = hosts["default"]["sendmail"]
+    #        if not host["tar"]:
+    #            if hosts["default"]["tar"]:
+    #                host["tar"] = hosts["default"]["tar"]
+
+
     config = dict( {\
         'hosts'            : hosts,
         'validators'       : get_validators(),
@@ -131,7 +163,7 @@ def get_config():
         'webserver_subject': "HPC output download ready" } )
 
     return config
-
+    
 def obj_to_dict(options_obj):
     options = dict()
     for key, val in vars(options_obj).iteritems():
@@ -244,6 +276,14 @@ def add_pbs_options(parser):
                      help="The email address for notifications about " + \
                          "errors and job completion")
 
+    ### Queue
+    g.add_option("-q", "--queue", action="callback",
+                 callback=store_seen, type="string",
+                 dest="queue", metavar="QUEUE",
+                 default="",
+                 help="Queue to submit to (if missing, submit to default " + \
+                     "queue for host)")
+    
     ### Notify
     g.add_option("-E", "--notify", action="callback",
                  callback=store_seen, type="string",
@@ -393,10 +433,10 @@ def submit_job(executable, config, options, args):
     workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
     make_pbs_script(executable, workdir, config, options, args)
-    tar_up_work(workfile, options)
-    create_workdir(workdir, options)
-    transfer_workfile(workfile, workdir, options)
-    queue_pbs_script(workfile, workdir, options)
+    tar_up_work(workfile, config, options)
+    create_workdir(workdir, config, options)
+    transfer_workfile(workfile, workdir, config, options)
+    queue_pbs_script(workfile, workdir, config, options)
 
 ### Create PBS Script
 def make_pbs_script(executable, workdir, config, options, args):
@@ -411,6 +451,11 @@ def make_pbs_script(executable, workdir, config, options, args):
     subs['executable'] = executable
     subs['workdir']    = workdir 
 
+    if (len(options["queue"])>0):
+        subs["queue"] = "#PBS -q " + options["queue"]
+    else:
+        subs["queue"] = ""
+
     if (subs['mail_host']):
         # if mail_host is set, ssh to the host to send mail
         subs['mail_command'] = "ssh %s@%s '%s -t'" % \
@@ -422,8 +467,9 @@ def make_pbs_script(executable, workdir, config, options, args):
     ### PBS SCRIPT START
     pbs.write("""\
 #!/bin/bash -l
-#PBS -N %(jobname)s
 #PBS -S /bin/bash
+#PBS -N %(jobname)s
+%(queue)s
 #PBS -l pvmem=%(pvmem)s
 #PBS -l nodes=%(nodes)d:ppn=%(ppn)d
 #PBS -l walltime=%(walltime)s
@@ -511,12 +557,12 @@ fi
     pbs.close()
     ### PBS SCRIPT END
 
-def tar_up_work(workfile, options):
+def tar_up_work(workfile, config, options):
     import subprocess
     exitcode = subprocess.call("tar -czvf %s *" % (workfile),
                                shell=True)
 
-def create_workdir(workdir, options):
+def create_workdir(workdir, config, options):
     import subprocess
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
@@ -524,28 +570,28 @@ def create_workdir(workdir, options):
                                (workdir, workdir),
                                shell=True)
 
-def transfer_workfile(workfile, workdir, options):
+def transfer_workfile(workfile, workdir, config, options):
     import subprocess
     exitcode = subprocess.call("scp %s " % (workfile) +
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
 
-def queue_pbs_script(workfile, workdir, options):
+def queue_pbs_script(workfile, workdir, config, options):
     import subprocess
+    tar = config["hosts"][options["host"]]["tar"]
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
-                               "'cd %s; tar -xzvf %s; qsub pbs_script.pbs'" %
-                               (workdir, workfile),
+                               "'cd %s; %s -xzvf %s; qsub pbs_script.pbs'" %
+                               (workdir, tar, workfile),
                                shell=True)
 
-def run_qstat(options):
+def run_qstat(config, options):
     import subprocess
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
                                "'qstat'",
                                shell=True)
-
 
 def add_execution_options(parser):
     import optparse
