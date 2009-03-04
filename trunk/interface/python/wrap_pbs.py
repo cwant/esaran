@@ -42,7 +42,7 @@ def main():
     import PBSUtil
 
     PBSUtil.do_wrapper(wrapper_title,
-                       get_wrapper_cmdline
+                       get_wrapper_cmdline,
                        add_wrapper_options,
                        wrapper_gui_options)
 
