@@ -1,0 +1,42 @@
+<wrapper>
+
+  <wrapper_title>Wrap RAxML</wrapper_title>
+  <options_title>RAxML Options</options_title>
+
+  <arguments>
+	<argument>
+	  <name>wrapper_exe</name>
+	  <short>-x</short>
+	  <long>--exe</long>
+	  <gui_title>RAxML executable:</gui_title>
+	  <help>The particular RAxML executable to run</help>
+	  <default>raxmlHPC-PTHREADS</default>
+	</argument>
+
+	<argument>
+	  <name>wrapper_args</name>
+	  <short>-a</short>
+	  <long>--args</long>
+	  <gui_title>RAxML options:</gui_title>
+	  <help>Arguments to be passed to the RAxML program</help>
+	</argument>
+  </arguments>
+
+  <hosts>
+	<host>
+	  <name>defaults</name>
+	  <command>
+%(wrapper_exe)s %(wrapper_args)s
+	  </command>
+	</host>
+
+	<host>
+	  <name>cluster.srv.ualberta.ca</name>
+	  <command>
+export PATH=$PATH:/usr/local/bin
+%(wrapper_exe)s %(wrapper_args)s
+	  </command>
+	</host>
+
+  </hosts>
+</wrapper>
