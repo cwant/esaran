@@ -33,16 +33,21 @@ Helper module for executing PBS jobs remotely.
 """
 
 ### Main Entry Point
-def do_wrapper(wrapper_title,
-               get_wrapper_cmdline,
+def do_wrapper(get_wrapper_cmdline,
+               wrapper_title=None,
                add_wrapper_options=None,
                wrapper_gui_options=None,
-               add_wrapper_validators=None):
+               add_wrapper_validators=None,
+               configfileXML=None):
     # add_wrapper_options() add_gui_controls(), and 
     # get_wrapper_cmdline() are callbacks
     import os, optparse
 
     config = get_config()
+
+    if (configfileXML):
+        add_config_XML(config, configfileXML)
+        wrapper_title = config["wrapper"]["wrapper_title"]
 
     if (add_wrapper_validators):
         add_wrapper_validators(config)
@@ -53,10 +58,10 @@ def do_wrapper(wrapper_title,
     else:
         parser = optparse.OptionParser()
         if (add_wrapper_options):
-            add_wrapper_options(parser)
-        add_account_options(parser)
-        add_pbs_options(parser)
-        add_execution_options(parser)
+            add_wrapper_options(parser, config)
+        add_account_options(parser, config)
+        add_pbs_options(parser, config)
+        add_execution_options(parser, config)
 
         parser.seen = dict()
         (options_obj, args) = parser.parse_args()
@@ -74,77 +79,12 @@ def do_wrapper(wrapper_title,
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(options, args)
-    executable = get_wrapper_cmdline(options, args)
+    executable = get_wrapper_cmdline(config, options, args)
     submit_job(executable, config, options, args)
 
 ### Get Config
 
-def get_config():
-    import os, sys
-    from xml.dom import minidom
-
-    # Read host config from XML file
-    config = os.path.dirname(__file__) + "/hosts.conf"
-    dom = minidom.parse(config)
-
-    hosts = dict()
-
-    hs = dom.getElementsByTagName("host")
-    for h in hs:
-        host = dict()
-
-        # Hostname
-        node = h.getElementsByTagName("name")
-        if node:
-            name = node[0].childNodes[0].data
-            host["name"] = name
-            hosts[name] = host
-        else:
-            print "Host must have a name!"
-            sys.exit(1)
-
-        # Sendmail
-        node = h.getElementsByTagName("sendmail")
-        if node:
-            sendmail = node[0].childNodes[0].data
-            host["sendmail"] = sendmail
-        else:
-            host["sendmail"] = None
-        # Tar
-        node = h.getElementsByTagName("tar")
-        if node:
-            tar = node[0].childNodes[0].data
-            host["tar"] = tar
-        else:
-            host["tar"] = None
-        # Mailhost
-        node = h.getElementsByTagName("mail_host")
-        if node:
-            mail_host = node[0].childNodes[0].data
-            host["mail_host"] = mail_host
-        else:
-            host["mail_host"] = None
-        # Queues
-        qs = h.getElementsByTagName("queue")
-        queues = []
-        host["queues"] = queues
-        for q in qs:
-            queue = dict()
-            node = q.getElementsByTagName("name")
-            if node:
-                name = node[0].childNodes[0].data
-                queue["name"] = name
-                queues.append(queue)
-    dom.unlink()
-
-    # Grab missing host attributes from the host called "default"
-    default = hosts["default"]
-    for key in default:
-        if default[key]:
-            for name in hosts:
-                if not hosts[name][key]:
-                    hosts[name][key] = default[key]
-
+def get_config(app_config = None, data = None):
     #for host in hosts:
     #    if host["name"] != "default":
     #        if not host["sendmail"]:
@@ -154,6 +94,9 @@ def get_config():
     #            if hosts["default"]["tar"]:
     #                host["tar"] = hosts["default"]["tar"]
 
+    hosts = get_hosts_config_XML("hosts.xml")
+    if app_config:
+        app_config(data)
 
     config = dict( {\
         'hosts'            : hosts,
@@ -218,7 +161,7 @@ def store_true_seen(option, opt_str, value, parser):
     setattr(parser.values, option.dest, True)
     parser.seen[option.dest] = True
 
-def add_account_options(parser):
+def add_account_options(parser, config):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Account options")
@@ -254,7 +197,7 @@ def add_account_options(parser):
     
     parser.add_option_group(g)
 
-def add_pbs_options(parser):
+def add_pbs_options(parser, config):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Job Scheduling options")
@@ -593,7 +536,7 @@ def run_qstat(config, options):
                                "'qstat'",
                                shell=True)
 
-def add_execution_options(parser):
+def add_execution_options(parser, config):
     import optparse
 
     g = optparse.OptionGroup(parser, "Execution options")
@@ -655,9 +598,11 @@ class OptionsWindow(wx.Frame):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         if (wrapper_gui_options):
-            add_options_panel(panel, sizer, options, wrapper_gui_options)
+            add_options_panel(panel, sizer, config, options,
+                              wrapper_gui_options)
 
-        add_options_panel(panel, sizer, options, pbs_gui_options)
+        add_options_panel(panel, sizer, config,
+                          options, pbs_gui_options)
 
         add_buttons(panel, sizer)
 
@@ -757,10 +702,10 @@ def OnSubmit(event):
 
     optwin.Destroy()
 
-def add_options_panel(panel, sizer, options, get_gui_options):
+def add_options_panel(panel, sizer, config, options, get_gui_options):
     subpanel = wx.Panel(panel, -1)
 
-    (title, fields) = get_gui_options(subpanel, options)
+    (title, fields) = get_gui_options(subpanel, config, options)
     fields_sizer = wx.FlexGridSizer(rows=len(fields), cols=2, 
                                     vgap=10, hgap=10)
 
@@ -780,7 +725,7 @@ def add_options_panel(panel, sizer, options, get_gui_options):
 
     sizer.Add(subpanel, 0,  wx.ALL, border=5)
 
-def pbs_gui_options(subpanel, options):
+def pbs_gui_options(subpanel, config, options):
     title = "PBS Options"
     optwin  =  subpanel.GetTopLevelParent()
     config  = optwin.config
@@ -922,57 +867,245 @@ def validate_host(config, options, value):
 
     return value
 
-### Generic Wrappers
+### XML based Wrappers
 
-generic = dict()
+def get_hosts_config_XML(hostsconf):
+    import os, sys
+    from xml.dom import minidom
 
-def generic_wrapper(wrapper_title,
-                    options_title,
-                    prog_name,
-                    run_string):
-    global generic
+    # Read host config from XML file
+    conf = os.path.dirname(__file__) + "/config/" + hostsconf
+    dom = minidom.parse(conf)
 
-    generic["wrapper_title"] = wrapper_title
-    generic["options_title"] = options_title
-    generic["prog_name"]     = prog_name
-    generic["run_string"]    = run_string
-    generic["args_name"]     = prog_name + "_args"
-    generic["gui_heading"]   = prog_name +" arguments:"
-    generic["gui_width"]     = 30
-    generic["args_help"]     = \
-        "Arguments to be passed to the %s program" % (prog_name)
+    hosts = dict()
+    defaults = dict()
 
-    do_wrapper(wrapper_title,
-               get_generic_cmdline,
-               add_generic_options,
-               generic_gui_options)
+    hs = dom.getElementsByTagName("host")
+    for h in hs:
+        host = dict()
 
-def get_generic_cmdline(options, args):
-    executable = "%s %s" % (generic["prog_name"],
-                            options[generic["args_name"]])
+        # Hostname
+        name = get_text_XML(h, "name")
+        if name:
+            host["name"] = name
+            if name == "defaults":
+                defaults = host
+            else:
+                hosts[name] = host
+        else:
+            print "Host must have a name!"
+            sys.exit(1)
 
-    return generic["run_string"] % (locals())
+        # Sendmail
+        host["sendmail"] = get_text_XML(h, "sendmail")
+        # Tar
+        host["tar"] = get_text_XML(h, "tar")
+        # Mailhost
+        host["mail_host"] = get_text_XML(h, "mail_host")
 
-def add_generic_options(parser):
-    import PBSUtil, optparse
+        # Queues
+        qs = h.getElementsByTagName("queue")
+        queues = []
+        host["queues"] = queues
+        for q in qs:
+            queue = dict()
+            name = get_text_XML(q, "name")
+            if name:
+                queue["name"] = name
+            else:
+                print "Queue must have a name!"
+                sys.exit(1)
+            queues.append(queue)
 
-    g = optparse.OptionGroup(parser, generic["options_title"])
+    dom.unlink()
 
-    ### Executable
-    g.add_option("-a", "--args", action="callback",
-                 callback=PBSUtil.store_seen, type="string",
-                 dest=generic["args_name"], metavar="OPTIONS",
-                 help=generic["args_help"])
+    # Grab missing host attributes from the host called "defaults"
+    for key in defaults:
+        if defaults[key]:
+            for name in hosts:
+                if not hosts[name][key]:
+                    hosts[name][key] = defaults[key]
+
+    return hosts
+
+def add_config_XML(config, configfileXML):
+    import os, sys
+    from xml.dom import minidom
+
+    conf = os.path.dirname(__file__) + "/config/" + configfileXML
+    dom = minidom.parse(conf)
+
+    wrapper = dict()
+
+    # Get Wrapper Title
+    wrapper["wrapper_title"] = get_text_required_XML(dom, "wrapper_title",
+                                                     "wrapper")
+
+    # Get Options Title
+    wrapper["options_title"] = get_text_required_XML(dom, "options_title",
+                                                     "wrapper")
+
+    arguments = dict()
+    args = dom.getElementsByTagName("argument")
+    for arg in args:
+        argument = dict()
+
+        # Get Argument Name
+        name  = get_text_required_XML(arg, "name", "argument")
+        argument["name"] = name
+        # Get Argument Short Form
+        argument["short"] = get_text_required_XML(arg, "short", "argument")
+        # Get Argument Long Form
+        argument["long"] = get_text_required_XML(arg, "long", "argument")
+        # Get Argument Help String
+        argument["help"] = get_text_required_XML(arg, "help", "argument")
+        # Get Argument Default (optional)
+        default = get_text_XML(arg, "default")
+        if default:
+            argument["default"] = default
+        # Get GUI title (optional)
+        gui_title = get_text_XML(arg, "gui_title")
+        if gui_title:
+            argument["gui_title"] = gui_title
+        # Get GUI width (optional)
+        gui_width = get_text_XML(arg, "gui_width")
+        if gui_width:
+            argument["gui_width"] = gui_width
+
+        arguments[name] = argument
+
+    hosts = dict()
+    defaults = dict()
+
+    hs = dom.getElementsByTagName("host")
+
+    # Get Hosts
+    for h in hs:
+        host = dict()
+
+        # Get Host Name
+        name = get_text_required_XML(h, "name", "host")
+        host["name"] = name
+        if name == "defaults":
+            defaults = host
+        else:
+            hosts[name] = host
+
+        # Get Command
+        host["command"] = get_text_XML(h, "command")
+
+    wrapper["arguments"] = arguments
+    wrapper["hosts"] = hosts
+    wrapper["defaults"] = defaults
+
+    config["wrapper"] = wrapper
+
+def do_wrapper_XML(conffile):
+    do_wrapper(get_wrapper_cmdline_XML,
+               add_wrapper_options=add_wrapper_options_XML,
+               wrapper_gui_options=wrapper_gui_options_XML,
+               configfileXML=conffile)
+
+def get_wrapper_cmdline_XML(config, options, args):
+
+    wrapper = config["wrapper"]
+
+    # Make a dict of options with argument names as key
+    args = dict()
+    for name in config["wrapper"]["arguments"]:
+        args[name] = options[name]
+
+    # Get the command that is appropriate for this host
+    # Try getting from defaults first ...
+    command = ""
+    if "command" in wrapper["defaults"].keys():
+        command = wrapper["defaults"]["command"]
+    # ... then override by a possible command specific to the host 
+    if options["host"] in wrapper["hosts"].keys():
+        host = wrapper["hosts"][options["host"]]
+        if "command" in host.keys():
+            command = host["command"]
+
+    if len(command) > 0:
+        # Substitute the args in the command
+        return command % (args)
+    else:
+        print "Command not found!"
+        sys.exit(1)
+
+def add_wrapper_options_XML(parser, config):
+    import optparse
+
+    wrapper = config["wrapper"]
+    if "arguments" in wrapper.keys():
+        arguments = wrapper["arguments"]
+    else:
+        return
+
+    g = optparse.OptionGroup(parser, wrapper["options_title"])
+
+    for key in arguments:
+        argument = arguments[key]
+        name  = argument["name"]
+        short = argument["short"]
+        long  = argument["long"]
+        if "default" in argument.keys():
+            default = argument["default"]
+            help = argument["help"] + " (default: %s)" % (default)
+            g.add_option(short, long, action="callback",
+                         callback=store_seen, type="string",
+                         dest=name, metavar="STRING",
+                         default=default, help=help)
+        else:
+            help = argument["help"]
+            g.add_option(short, long, action="callback",
+                         callback=store_seen, type="string",
+                         dest=name, metavar="STRING",
+                         help=help)
 
     parser.add_option_group(g)
 
-def generic_gui_options(subpanel, options):
-    import PBSUtil
-    title = generic["options_title"]
+def wrapper_gui_options_XML(subpanel, config, options):
+    wrapper = config["wrapper"]
+
+    if "arguments" in wrapper.keys():
+        arguments = wrapper["arguments"]
+    else:
+        return
+
+    title = wrapper["options_title"]
+
     fields = []
-    fields.append(PBSUtil.add_text_control(subpanel,
-                                           generic["args_name"],
-                                           generic["gui_heading"],
-                                           width=generic["gui_width"]))
+    for key in arguments:
+        argument = arguments[key]
+        if "gui_title" in argument.keys():
+            gui_title = argument["gui_title"]
+            name      = argument["name"]
+            gui_width = 30
+            if "gui_width" in argument.keys():
+                gui_width = int(argument["gui_width"])
+
+            fields.append(add_text_control(subpanel,
+                                           name,
+                                           gui_title,
+                                           width=gui_width))
 
     return (title, fields)
+
+# Helper for getting text out of Element nodes
+def get_text_XML(element, name):
+    node = element.getElementsByTagName(name)
+    
+    if node:
+        return str(node[0].childNodes[0].data)
+
+    return None
+
+def get_text_required_XML(element, name, parent_name):
+
+    text = get_text_XML(element, name)
+    if not text:
+        print name + " not defined for " + parent_name + "!"
+        sys.exit(1)
+
+    return text

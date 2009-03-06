@@ -32,16 +32,6 @@
 def main():
     import PBSUtil
 
-    wrapper_title    = "Wrap GAMESS"
-    options_title    = "GAMESS options"
-    prog_name        = "rungms"
-    run_string       = """\
-module load gaussian
-%(executable)s
-"""
-    PBSUtil.generic_wrapper(wrapper_title,
-                            options_title,
-                            prog_name,
-                            run_string)
+    PBSUtil.do_wrapper_XML("wrap_gamess.xml")
 
 main()
