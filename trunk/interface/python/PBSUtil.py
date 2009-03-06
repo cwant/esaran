@@ -884,17 +884,19 @@ def get_hosts_config_XML(hostsconf):
     for h in hs:
         host = dict()
 
-        # Hostname
-        name = get_text_XML(h, "name")
-        if name:
-            host["name"] = name
-            if name == "defaults":
-                defaults = host
-            else:
-                hosts[name] = host
+        # defaults?
+        type = h.getAttribute("type")
+        if (type == "defaults"):
+            defaults = host
         else:
-            print "Host must have a name!"
-            sys.exit(1)
+            # If not defaults, get hostname
+            name = get_text_XML(h, "name")
+            if name:
+                host["name"] = name
+                hosts[name] = host
+            else:
+                print "Host must have a name!"
+                sys.exit(1)
 
         # Sendmail
         host["sendmail"] = get_text_XML(h, "sendmail")
@@ -983,12 +985,13 @@ def add_config_XML(config, configfileXML):
     for h in hs:
         host = dict()
 
-        # Get Host Name
-        name = get_text_required_XML(h, "name", "host")
-        host["name"] = name
-        if name == "defaults":
+        type = h.getAttribute("type")
+        if (type == "defaults"):
             defaults = host
         else:
+            # Get Host Name
+            name = get_text_required_XML(h, "name", "host")
+            host["name"] = name
             hosts[name] = host
 
         # Get Command
