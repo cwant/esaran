@@ -32,16 +32,6 @@
 def main():
     import PBSUtil
 
-    wrapper_title    = "Wrap Gaussian"
-    options_title    = "Gaussian options"
-    prog_name        = "g03"
-    run_string       = """\
-module load gaussian
-%(executable)s
-"""
-    PBSUtil.generic_wrapper(wrapper_title,
-                            options_title,
-                            prog_name,
-                            run_string)
+    PBSUtil.do_wrapper_XML("wrap_gaussian.xml")
 
 main()

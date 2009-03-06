@@ -1,0 +1,33 @@
+<wrapper>
+
+  <wrapper_title>Wrap Gaussian</wrapper_title>
+  <options_title>Gaussian Options</options_title>
+
+  <arguments>
+	<argument>
+	  <name>wrapper_args</name>
+	  <short>-a</short>
+	  <long>--args</long>
+	  <gui_title>g03 options:</gui_title>
+	  <help>Arguments to be passed to the g03 program</help>
+	</argument>
+  </arguments>
+
+  <hosts>
+	<host>
+	  <name>defaults</name>
+	  <command>
+g03 %(wrapper_args)s
+	  </command>
+	</host>
+
+	<host>
+	  <name>cluster.srv.ualberta.ca</name>
+	  <command>
+module load gaussian
+g03 %(wrapper_args)s
+	  </command>
+	</host>
+
+  </hosts>
+</wrapper>

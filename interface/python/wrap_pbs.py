@@ -41,15 +41,15 @@ help             = help="The name and arguments of the program to run"
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper(wrapper_title,
-                       get_wrapper_cmdline,
-                       add_wrapper_options,
-                       wrapper_gui_options)
+    PBSUtil.do_wrapper(get_wrapper_cmdline,
+                       wrapper_title=wrapper_title,
+                       add_wrapper_options=add_wrapper_options,
+                       wrapper_gui_options=wrapper_gui_options)
 
-def get_wrapper_cmdline(options, args):
+def get_wrapper_cmdline(config, options, args):
     return options[program]
 
-def add_wrapper_options(parser):
+def add_wrapper_options(parser, config):
     import PBSUtil, optparse 
 
     g = optparse.OptionGroup(parser, options_title)
@@ -62,7 +62,7 @@ def add_wrapper_options(parser):
 
     parser.add_option_group(g)
 
-def wrapper_gui_options(subpanel, options):
+def wrapper_gui_options(subpanel, config, options):
     import PBSUtil
     title = options_title
     fields = []

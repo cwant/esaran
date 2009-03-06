@@ -1,0 +1,33 @@
+<wrapper>
+
+  <wrapper_title>Wrap Gromacs</wrapper_title>
+  <options_title>Gromacs Options</options_title>
+
+  <arguments>
+	<argument>
+	  <name>wrapper_args</name>
+	  <short>-a</short>
+	  <long>--args</long>
+	  <gui_title>mdrun options:</gui_title>
+	  <help>Arguments to be passed to the mdrun program</help>
+	</argument>
+  </arguments>
+
+  <hosts>
+	<host>
+	  <name>defaults</name>
+	  <command>
+mdrun %(wrapper_args)s
+	  </command>
+	</host>
+
+	<host>
+	  <name>cluster.srv.ualberta.ca</name>
+	  <command>
+module load gromacs
+mdrun %(wrapper_args)s
+	  </command>
+	</host>
+
+  </hosts>
+</wrapper>

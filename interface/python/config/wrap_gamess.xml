@@ -1,0 +1,33 @@
+<wrapper>
+
+  <wrapper_title>Wrap GAMESS</wrapper_title>
+  <options_title>GAMESS Options</options_title>
+
+  <arguments>
+	<argument>
+	  <name>wrapper_args</name>
+	  <short>-a</short>
+	  <long>--args</long>
+	  <gui_title>rungms options:</gui_title>
+	  <help>Arguments to be passed to the rungms program</help>
+	</argument>
+  </arguments>
+
+  <hosts>
+	<host>
+	  <name>defaults</name>
+	  <command>
+rungms %(wrapper_args)s
+	  </command>
+	</host>
+
+	<host>
+	  <name>cluster.srv.ualberta.ca</name>
+	  <command>
+module load gamess
+rungms %(wrapper_args)s
+	  </command>
+	</host>
+
+  </hosts>
+</wrapper>

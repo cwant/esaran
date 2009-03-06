@@ -32,16 +32,6 @@
 def main():
     import PBSUtil
 
-    wrapper_title    = "Wrap Gromacs"
-    options_title    = "Gromacs options"
-    prog_name        = "mdrun"
-    run_string       = """\
-module load gromacs
-%(executable)s
-"""
-    PBSUtil.generic_wrapper(wrapper_title,
-                            options_title,
-                            prog_name,
-                            run_string)
+    PBSUtil.do_wrapper_XML("wrap_gromacs.xml")
 
 main()
