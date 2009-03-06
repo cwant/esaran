@@ -14,8 +14,7 @@
   </arguments>
 
   <hosts>
-	<host>
-	  <name>defaults</name>
+	<host type="defaults">
 	  <command>
 rungms %(wrapper_args)s
 	  </command>

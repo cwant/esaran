@@ -1,6 +1,5 @@
 <hosts>
-  <host>
-	<name>defaults</name>
+  <host type="defaults">
 	<sendmail>/usr/sbin/sendmail</sendmail>
 	<tar>/bin/tar</tar>
   </host>

@@ -23,8 +23,7 @@
   </arguments>
 
   <hosts>
-	<host>
-	  <name>defaults</name>
+	<host type="defaults">
 	  <command>
 %(wrapper_exe)s %(wrapper_args)s
 	  </command>

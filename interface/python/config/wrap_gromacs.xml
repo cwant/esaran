@@ -14,8 +14,7 @@
   </arguments>
 
   <hosts>
-	<host>
-	  <name>defaults</name>
+	<host type="defaults">
 	  <command>
 mdrun %(wrapper_args)s
 	  </command>
