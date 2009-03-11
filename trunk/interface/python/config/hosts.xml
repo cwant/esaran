@@ -2,6 +2,8 @@
   <host type="defaults">
 	<sendmail>/usr/sbin/sendmail</sendmail>
 	<tar>/bin/tar</tar>
+	<email_base>ualberta.ca</email_base>
+	<scratch_base>/scratch</scratch_base>
   </host>
 
   <host>
@@ -11,12 +13,14 @@
 
   <host>
     <name>num.srv.ualberta.ca</name>
+	<scratch_base>/scratch_shared</scratch_base>
   </host>
 
   <host>
     <name>nexus.westgrid.ca</name>
 	<sendmail>/usr/lib/sendmail</sendmail>
 	<tar>/usr/freeware/bin/tar</tar>
+	<scratch_base>/site/home</scratch_base>
 	<queues>
 	  <queue><name>nexus</name></queue>
 	  <queue><name>arcturus</name></queue>
@@ -28,6 +32,7 @@
   <host>
     <name>cortex.westgrid.ca</name>
 	<tar>/usr/freeware/bin/tar</tar>
+	<scratch_base>/site/home</scratch_base>
 	<queues>
 	  <queue><name>q1</name></queue>
 	  <queue><name>q2</name></queue>
