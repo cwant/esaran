@@ -43,14 +43,7 @@ def do_wrapper(get_wrapper_cmdline,
     # get_wrapper_cmdline() are callbacks
     import os, optparse
 
-    config = get_config()
-
-    if (configfileXML):
-        add_config_XML(config, configfileXML)
-        wrapper_title = config["wrapper"]["wrapper_title"]
-
-    if (add_wrapper_validators):
-        add_wrapper_validators(config)
+    config = get_config(configfileXML, add_wrapper_validators)
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
@@ -86,11 +79,9 @@ def do_wrapper(get_wrapper_cmdline,
 
 ### Get Config
 
-def get_config(app_config = None, data = None):
+def get_config(configfileXML = None, add_wrapper_validators = None):
 
     hosts = get_hosts_config_XML("hosts.xml")
-    if app_config:
-        app_config(data)
 
     config = dict( {\
         'hosts'            : hosts,
@@ -98,6 +89,13 @@ def get_config(app_config = None, data = None):
         'webserver_site'   : "https://sciviz.nic.ualberta.ca/~cwant/hpc_web",
         'webserver_address': "cwant@sciviz.nic.ualberta.ca",
         'webserver_subject': "HPC output download ready" } )
+
+    if (configfileXML):
+        add_config_XML(config, configfileXML)
+        wrapper_title = config["wrapper"]["wrapper_title"]
+
+    if (add_wrapper_validators):
+        add_wrapper_validators(config)
 
     return config
     
