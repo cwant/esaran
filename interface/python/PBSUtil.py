@@ -68,6 +68,8 @@ def do_wrapper(get_wrapper_cmdline,
         options = obj_to_dict(options_obj)
         seen    = parser.seen
 
+        make_account_defaults(config, options, seen)
+
         if (options["load_options"]):
             load_merge_options(options, options["load_options"], seen)
         if (options["gui"]):
@@ -85,14 +87,6 @@ def do_wrapper(get_wrapper_cmdline,
 ### Get Config
 
 def get_config(app_config = None, data = None):
-    #for host in hosts:
-    #    if host["name"] != "default":
-    #        if not host["sendmail"]:
-    #            if hosts["default"]["sendmail"]:
-    #                host["sendmail"] = hosts["default"]["sendmail"]
-    #        if not host["tar"]:
-    #            if hosts["default"]["tar"]:
-    #                host["tar"] = hosts["default"]["tar"]
 
     hosts = get_hosts_config_XML("hosts.xml")
     if app_config:
@@ -189,6 +183,25 @@ def add_account_options(parser, config):
                      help="The user id used to login to " + \
                          "the HPC resourse")
 
+    ### Work directory
+    g.add_option("-d", "--dir", action="callback",
+                 callback=store_seen, type="string",
+                 dest="dir", metavar="DIRECTORY",
+                 default="",
+                 help="The directory on the HPC resource under which " + \
+                     "a temporary work directory will be created " + \
+                     "(default: /scratch/USER or host based location " + \
+                     "of scratch space)")
+
+    ### Email
+    g.add_option("-e", "--email", action="callback",
+                 callback=store_seen, type="string",
+                 dest="email", metavar="USER@EXAMPLE.COM",
+                 default="",
+                 help="The email address for notifications about " + \
+                     "errors and job completion " + \
+                     "(default: USER@ualberta.ca)")
+
     ### Key
     g.add_option("-k", "--key", action="callback",
                  callback=store_seen, type="string",
@@ -197,27 +210,25 @@ def add_account_options(parser, config):
     
     parser.add_option_group(g)
 
+def make_account_defaults(config, options, seen):
+    if options["user"]:
+        user = options["user"]
+        if options["host"] in config["hosts"].keys():
+            host = config["hosts"][options["host"]]
+
+        if seen:
+            if not seen.has_key("dir"):
+                dir = host["scratch_base"] + "/" + user
+                options["dir"] = dir
+            if not seen.has_key("email"):
+                email = user + "@" + host["email_base"]
+                options["email"] = email
+
+
 def add_pbs_options(parser, config):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Job Scheduling options")
-    user = os.getenv("USER")
-
-    ### Email
-    if (user):
-        g.add_option("-e", "--email", action="callback",
-                     callback=store_seen, type="string",
-                     dest="email", metavar="USER@EXAMPLE.COM",
-                     default=user + "@ualberta.ca",
-                     help="The email address for notifications about " + \
-                         "errors and job completion " + \
-                         "(default: %default)")
-    else:
-        g.add_option("-e", "--email", action="callback",
-                     callback=store_seen, type="string",
-                     dest="email", metavar="EMAIL@foo.com",
-                     help="The email address for notifications about " + \
-                         "errors and job completion")
 
     ### Queue
     g.add_option("-q", "--queue", action="callback",
@@ -270,22 +281,6 @@ def add_pbs_options(parser, config):
                  dest="walltime", metavar="WALLTIME", default="24:00:00",
                  help="The maximum time required to run the job " +
                  "(default: %default)")
-
-    ### Work directory
-    if (user):
-        g.add_option("-d", "--dir", action="callback",
-                 callback=store_seen, type="string",
-                     dest="dir", metavar="DIRECTORY",
-                     default="/scratch/" + user,
-                     help="The directory on the HPC resource under which " + \
-                         "a temporary work directory will be created " + \
-                         "(default: %default)")
-    else:
-        g.add_option("-d", "--dir", action="callback",
-                     callback=store_seen, type="string",
-                     dest="dir", metavar="DIRECTORY",
-                     help="The directory on the HPC resource under which " + \
-                         "a temporary work directory will be created")
 
     ### Add options ########################
     
@@ -904,6 +899,10 @@ def get_hosts_config_XML(hostsconf):
         host["tar"] = get_text_XML(h, "tar")
         # Mailhost
         host["mail_host"] = get_text_XML(h, "mail_host")
+        # scratch_base
+        host["scratch_base"] = get_text_XML(h, "scratch_base")
+        # email_base
+        host["email_base"] = get_text_XML(h, "email_base")
 
         # Queues
         qs = h.getElementsByTagName("queue")
