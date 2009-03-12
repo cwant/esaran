@@ -816,6 +816,12 @@ def pbs_gui_options(subpanel, config, options):
     fields.append(add_text_control(subpanel,
                                    "dir",
                                    "Remote work directory:"))
+    fields.append(add_text_control(subpanel,
+                                   "input",
+                                   "Input files:"))
+    fields.append(add_text_control(subpanel,
+                                   "output",
+                                   "Output files:"))
 
     return (title, fields)
 
