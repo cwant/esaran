@@ -76,7 +76,7 @@ def do_wrapper(get_wrapper_cmdline,
         save_options(options, options["save_options"])
 
     # Set up ssh keys, respawning if needed
-    set_up_ssh(options, args)
+    set_up_ssh(config, options, args)
     executable = get_wrapper_cmdline(config, options, args)
     submit_job(executable, config, options, args)
 
@@ -97,11 +97,11 @@ def get_config(wrapper_title = None,
 
     if (configfileXML):
         add_config_XML(config, configfileXML)
-
-    if wrapper_title:
+        config["wrapper_title"] = config["wrapper"]["wrapper_title"]
+    elif wrapper_title:
         config["wrapper_title"] = wrapper_title
     else:
-        config["wrapper_title"] = config["wrapper"]["wrapper_title"]
+        config["wrapper_title"] = ""
 
     if (add_wrapper_validators):
         add_wrapper_validators(config)
@@ -361,7 +361,7 @@ def ssh_need_key(options):
 
     return 0
 
-def set_up_ssh(options, args):
+def set_up_ssh(config, options, args):
     import sys, os, pickle, subprocess
 
     # Check if there is an ssh-agent running -- if not, re-run self in

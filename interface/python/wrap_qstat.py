@@ -39,14 +39,14 @@ def main():
         (options, args) = PBSUtil.load_program_args()
     else:
         parser = optparse.OptionParser()
-        PBSUtil.add_account_options(parser)
+        PBSUtil.add_account_options(parser, config)
         (options_obj, args) = parser.parse_args()
         options = PBSUtil.obj_to_dict(options_obj)
 
     PBSUtil.validate_host(config, options, options["host"])
 
-    PBSUtil.set_up_ssh(options, args)
+    PBSUtil.set_up_ssh(config, options, args)
 
-    PBSUtil.run_qstat(options)
+    PBSUtil.run_qstat(config, options)
 
 main()
