@@ -43,7 +43,9 @@ def do_wrapper(get_wrapper_cmdline,
     # get_wrapper_cmdline() are callbacks
     import os, optparse
 
-    config = get_config(configfileXML, add_wrapper_validators)
+    config = get_config(wrapper_title,
+                        configfileXML,
+                        add_wrapper_validators)
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
@@ -67,7 +69,7 @@ def do_wrapper(get_wrapper_cmdline,
         if (options["load_options"]):
             load_merge_options(options, options["load_options"], seen)
         if (options["gui"]):
-            make_gui(wrapper_title, config, options, args, wrapper_gui_options)
+            make_gui(config, options, args, wrapper_gui_options)
 
     validate_options(config, options)
     if (options["save_options"]):
@@ -80,7 +82,9 @@ def do_wrapper(get_wrapper_cmdline,
 
 ### Get Config
 
-def get_config(configfileXML = None, add_wrapper_validators = None):
+def get_config(wrapper_title = None,
+               configfileXML = None,
+               add_wrapper_validators = None):
 
     hosts = get_hosts_config_XML("hosts.xml")
 
@@ -93,7 +97,11 @@ def get_config(configfileXML = None, add_wrapper_validators = None):
 
     if (configfileXML):
         add_config_XML(config, configfileXML)
-        wrapper_title = config["wrapper"]["wrapper_title"]
+
+    if wrapper_title:
+        config["wrapper_title"] = wrapper_title
+    else:
+        config["wrapper_title"] = config["wrapper"]["wrapper_title"]
 
     if (add_wrapper_validators):
         add_wrapper_validators(config)
@@ -624,7 +632,7 @@ def add_execution_options(parser, config):
 
 ### GUI ############################################################
 
-def make_gui(name, config, options, args, wrapper_gui_options):
+def make_gui(config, options, args, wrapper_gui_options):
     import sys
     try:
         import wx
@@ -632,7 +640,7 @@ def make_gui(name, config, options, args, wrapper_gui_options):
         return
 
     app = wx.PySimpleApp()
-    frame = OptionsWindow(None, -1, name, 
+    frame = OptionsWindow(None, -1, config["wrapper_title"], 
                           config, options, args, wrapper_gui_options)
     app.MainLoop()
 
