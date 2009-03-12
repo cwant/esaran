@@ -53,6 +53,7 @@ def do_wrapper(get_wrapper_cmdline,
         if (add_wrapper_options):
             add_wrapper_options(parser, config)
         add_account_options(parser, config)
+        add_file_transfer_options(parser, config)
         add_pbs_options(parser, config)
         add_execution_options(parser, config)
 
@@ -223,6 +224,39 @@ def make_account_defaults(config, options, seen):
                 options["email"] = email
 
 
+def add_file_transfer_options(parser, config):
+    import os, optparse
+
+    g = optparse.OptionGroup(parser, "File transfer options")
+
+    ### Input
+    g.add_option("-i", "--input", action="callback",
+                 callback=store_seen, type="string",
+                 dest="input", metavar="FILE1 FILE2 ...",
+                 default="",
+                 help="Files to transfer to remote working directory " + \
+                     "(default: send all files in current directory)")
+    
+    ### Output
+    g.add_option("-o", "--output", action="callback",
+                 callback=store_seen, type="string",
+                 dest="output", metavar="FILE1 FILE2 ...",
+                 default="",
+                 help="Files to send back to the user on job completion " + \
+                     "(default: send all files in remote working directory)")
+
+    ### Rsync
+    g.add_option("-r", "--rsync", action="callback",
+                 callback=store_true_seen, type="string",
+                 dest="rsync",
+                 default=False,
+                 help="The name of the job that is submitted to " + \
+                     "the HPC resource (default: %default)")
+
+    ### Add options ########################
+    
+    parser.add_option_group(g)
+
 def add_pbs_options(parser, config):
     import os, optparse
 
@@ -369,9 +403,18 @@ def submit_job(executable, config, options, args):
     workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
     make_pbs_script(executable, workdir, config, options, args)
-    tar_up_work(workfile, config, options)
+
+    if not options["rsync"]:
+        tar_up_work(workfile, config, options)
+
     create_workdir(workdir, config, options)
+
     transfer_workfile(workfile, workdir, config, options)
+    if options["rsync"]:
+        rsync_work(config, options)
+    else:
+        tar_up_work(workfile, config, options)
+
     queue_pbs_script(workfile, workdir, config, options)
 
 ### Create PBS Script
@@ -386,6 +429,11 @@ def make_pbs_script(executable, workdir, config, options, args):
     subs.update(args)
     subs['executable'] = executable
     subs['workdir']    = workdir 
+
+    if (len(options["output"])>0):
+        subs["outfiles"] = options["output"]
+    else:
+        subs["outfiles"] = "*"
 
     if (len(options["queue"])>0):
         subs["queue"] = "#PBS -q " + options["queue"]
@@ -428,7 +476,7 @@ else
   SUBJECT="Results from job %(jobname)s"
 fi
 
-zip -r ${OUTPUT} * > /dev/null
+zip -r ${OUTPUT} %(outfiles)s > /dev/null
 chmod o+r ${OUTPUT}
 ZIPSIZE=`wc -c ${OUTPUT} | cut -d " " -f 1`
 if [ ${ZIPSIZE} -lt 5000000 ]
@@ -495,7 +543,14 @@ fi
 
 def tar_up_work(workfile, config, options):
     import subprocess
-    exitcode = subprocess.call("tar -czvf %s *" % (workfile),
+
+    # always send the pbs script
+    if (len(options["input"])>0):
+        files = "pbs_script.pbs " + options["input"]
+    else:
+        files = "*"
+
+    exitcode = subprocess.call("tar -czvf %s %s" % (workfile, files),
                                shell=True)
 
 def create_workdir(workdir, config, options):
@@ -512,6 +567,9 @@ def transfer_workfile(workfile, workdir, config, options):
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
+
+def rsync_work(config, options):
+    print "Not supported yet"
 
 def queue_pbs_script(workfile, workdir, config, options):
     import subprocess
