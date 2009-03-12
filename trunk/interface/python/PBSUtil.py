@@ -402,23 +402,13 @@ def submit_job(executable, config, options, args):
                                  os.getpid())
     workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
-    make_pbs_script(executable, workdir, config, options, args)
-
-    if not options["rsync"]:
-        tar_up_work(workfile, config, options)
-
+    make_pbs_script(executable, workdir, config, options)
     create_workdir(workdir, config, options)
-
-    transfer_workfile(workfile, workdir, config, options)
-    if options["rsync"]:
-        rsync_work(config, options)
-    else:
-        tar_up_work(workfile, config, options)
-
+    transfer_files(workfile, workdir, config, options)
     queue_pbs_script(workfile, workdir, config, options)
 
 ### Create PBS Script
-def make_pbs_script(executable, workdir, config, options, args):
+def make_pbs_script(executable, workdir, config, options):
     pbs = open("pbs_script.pbs", "w")
 
     # create dictionary of strings for heredoc substitutions
@@ -426,7 +416,6 @@ def make_pbs_script(executable, workdir, config, options, args):
     subs.update(options)
     subs.update(config)
     subs.update(config['hosts'][options["host"]])
-    subs.update(args)
     subs['executable'] = executable
     subs['workdir']    = workdir 
 
@@ -541,6 +530,34 @@ fi
     pbs.close()
     ### PBS SCRIPT END
 
+def create_workdir(workdir, config, options):
+    import subprocess
+    exitcode = subprocess.call("ssh %s@%s " %
+                               (options["user"], options["host"]) +
+                               "'mkdir -p %s; chmod o+r %s'" %
+                               (workdir, workdir),
+                               shell=True)
+
+def transfer_files(workfile, workdir, config, options):
+    if options["rsync"]:
+        rsync_work(workdir, config, options)
+    else:
+        tar_up_work(workfile, config, options)
+        transfer_workfile(workfile, workdir, config, options)
+
+
+def rsync_work(workdir, config, options):
+    import subprocess
+    if (len(options["input"])>0):
+        files = "pbs_script.pbs " + options["input"]
+    else:
+        files = "."
+
+    exitcode = subprocess.call("rsync %s " % (files) +
+                               "%s@%s:%s" %
+                               (options["user"], options["host"], workdir),
+                               shell=True)
+
 def tar_up_work(workfile, config, options):
     import subprocess
 
@@ -553,14 +570,6 @@ def tar_up_work(workfile, config, options):
     exitcode = subprocess.call("tar -czvf %s %s" % (workfile, files),
                                shell=True)
 
-def create_workdir(workdir, config, options):
-    import subprocess
-    exitcode = subprocess.call("ssh %s@%s " %
-                               (options["user"], options["host"]) +
-                               "'mkdir -p %s; chmod o+r %s'" %
-                               (workdir, workdir),
-                               shell=True)
-
 def transfer_workfile(workfile, workdir, config, options):
     import subprocess
     exitcode = subprocess.call("scp %s " % (workfile) +
@@ -568,17 +577,20 @@ def transfer_workfile(workfile, workdir, config, options):
                                (options["user"], options["host"], workdir),
                                shell=True)
 
-def rsync_work(config, options):
-    print "Not supported yet"
-
 def queue_pbs_script(workfile, workdir, config, options):
     import subprocess
-    tar = config["hosts"][options["host"]]["tar"]
-    exitcode = subprocess.call("ssh %s@%s " %
-                               (options["user"], options["host"]) +
-                               "'cd %s; %s -xzvf %s; qsub pbs_script.pbs'" %
-                               (workdir, tar, workfile),
-                               shell=True)
+    if options["rsync"]:
+        tar =""
+    else:
+        tar = config["hosts"][options["host"]]["tar"] + \
+            " -xzvf %s; " % (workfile)
+
+    command = \
+        "ssh %s@%s " % (options["user"], options["host"]) + \
+        "'cd %s; "  % (workdir) + \
+        tar + "qsub pbs_script.pbs'"
+  
+    exitcode = subprocess.call(command, shell=True)
 
 def run_qstat(config, options):
     import subprocess
