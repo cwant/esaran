@@ -32,6 +32,6 @@
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper_XML("wrap_gaussian.xml")
+    PBSUtil.do_wrapper(configfileXML="wrap_gaussian.xml")
 
 main()

@@ -36,7 +36,7 @@ def main():
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
-        (options, args) = PBSUtil.load_program_args()
+        options = PBSUtil.load_program_args()
     else:
         parser = optparse.OptionParser()
         PBSUtil.add_account_options(parser, config)
@@ -45,7 +45,7 @@ def main():
 
     PBSUtil.validate_host(config, options, options["host"])
 
-    PBSUtil.set_up_ssh(config, options, args)
+    PBSUtil.set_up_ssh(config, options)
 
     PBSUtil.run_qstat(config, options)
 

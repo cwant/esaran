@@ -33,58 +33,42 @@ Helper module for executing PBS jobs remotely.
 """
 
 ### Main Entry Point
-def do_wrapper(get_wrapper_cmdline,
-               wrapper_title=None,
+def do_wrapper(get_wrapper_cmdline="",
+               wrapper_title="",
                add_wrapper_options=None,
                wrapper_gui_options=None,
                add_wrapper_validators=None,
-               configfileXML=None):
+               configfileXML=""):
     # add_wrapper_options() add_gui_controls(), and 
     # get_wrapper_cmdline() are callbacks
-    import os, optparse
 
-    config = get_config(wrapper_title,
-                        configfileXML,
-                        add_wrapper_validators)
+    config = get_config(get_wrapper_cmdline,
+                        wrapper_title,
+                        add_wrapper_options,
+                        wrapper_gui_options,
+                        add_wrapper_validators,
+                        configfileXML)
 
-    if (os.getenv("SSH_AGENT_RESPAWN")):
-        # We have been respawned, load pickled options
-        (options, args) = load_wrapper_args()
-    else:
-        parser = optparse.OptionParser()
-        if (add_wrapper_options):
-            add_wrapper_options(parser, config)
-        add_account_options(parser, config)
-        add_file_transfer_options(parser, config)
-        add_pbs_options(parser, config)
-        add_execution_options(parser, config)
-
-        parser.seen = dict()
-        (options_obj, args) = parser.parse_args()
-        options = obj_to_dict(options_obj)
-        seen    = parser.seen
-
-        make_account_defaults(config, options, seen)
-
-        if (options["load_options"]):
-            load_merge_options(options, options["load_options"], seen)
-        if (options["gui"]):
-            make_gui(config, options, args, wrapper_gui_options)
+    options = get_options(config)
 
     validate_options(config, options)
     if (options["save_options"]):
         save_options(options, options["save_options"])
 
     # Set up ssh keys, respawning if needed
-    set_up_ssh(config, options, args)
-    executable = get_wrapper_cmdline(config, options, args)
-    submit_job(executable, config, options, args)
+    set_up_ssh(config, options)
+    submit_job(config, options)
 
 ### Get Config
 
-def get_config(wrapper_title = None,
-               configfileXML = None,
-               add_wrapper_validators = None):
+def get_config(get_wrapper_cmdline="",
+               wrapper_title="",
+               add_wrapper_options=None,
+               wrapper_gui_options=None,
+               add_wrapper_validators=None,
+               configfileXML=""):
+
+    import sys
 
     hosts = get_hosts_config_XML("hosts.xml")
 
@@ -98,15 +82,53 @@ def get_config(wrapper_title = None,
     if (configfileXML):
         add_config_XML(config, configfileXML)
         config["wrapper_title"] = config["wrapper"]["wrapper_title"]
-    elif wrapper_title:
-        config["wrapper_title"] = wrapper_title
+        config["get_wrapper_cmdline"] = get_wrapper_cmdline_XML
+        config["add_wrapper_options"] = add_wrapper_options_XML
+        config["wrapper_gui_options"] = wrapper_gui_options_XML
     else:
-        config["wrapper_title"] = ""
+        config["wrapper_title"] = wrapper_title
+        config["get_wrapper_cmdline"] = get_wrapper_cmdline
+        config["add_wrapper_options"] = add_wrapper_options
+        config["wrapper_gui_options"] = wrapper_gui_options
 
     if (add_wrapper_validators):
         add_wrapper_validators(config)
 
+    #if not config["get_wrapper_cmdline"]:
+    #    print("Do not know how to create command line!")
+    #    sys.exit(1)
+
     return config
+
+def get_options(config):
+    import os, optparse
+
+    if (os.getenv("SSH_AGENT_RESPAWN")):
+        # We have been respawned, load pickled options
+        options = load_wrapper_args()
+    else:
+        parser = optparse.OptionParser()
+        if (config["add_wrapper_options"]):
+            config["add_wrapper_options"](parser, config)
+        add_account_options(parser, config)
+        add_file_transfer_options(parser, config)
+        add_pbs_options(parser, config)
+        add_execution_options(parser, config)
+
+        parser.seen = dict()
+        (options_obj, args) = parser.parse_args()
+        options = obj_to_dict(options_obj)
+        options["args"] = args
+        seen    = parser.seen
+
+        make_account_defaults(config, options, seen)
+
+        if (options["load_options"]):
+            load_merge_options(options, options["load_options"], seen)
+        if (options["gui"]):
+            make_gui(config, options, config["wrapper_gui_options"])
+
+    return options
     
 def obj_to_dict(options_obj):
     options = dict()
@@ -119,9 +141,8 @@ def load_wrapper_args():
     import pickle, sys
 
     options = pickle.load(sys.stdin)
-    args    = pickle.load(sys.stdin)
 
-    return (options, args)
+    return options
 
 def load_merge_options(options, file, seen=None):
     # Load pickled command line options and positional args
@@ -361,7 +382,7 @@ def ssh_need_key(options):
 
     return 0
 
-def set_up_ssh(config, options, args):
+def set_up_ssh(config, options):
     import sys, os, pickle, subprocess
 
     # Check if there is an ssh-agent running -- if not, re-run self in
@@ -377,7 +398,6 @@ def set_up_ssh(config, options, args):
                                 % sys.argv[0],
                                 stdin=SubProcess.PIPE, shell=True);
         pickle.dump(options, pipe.stdin)
-        pickle.dump(args, pipe.stdin)
         pipe.stdin.flush()
         sts = os.waitpid(pipe.pid, 0)
         sys.exit();
@@ -403,8 +423,10 @@ For assistance, please contact research.support@ualberta.ca
 """ % locals())
 
 ### Job Submission
-def submit_job(executable, config, options, args):
+def submit_job(config, options):
     import os
+
+    executable = config["get_wrapper_cmdline"](config, options)
 
     workdir  = "%s/%s_%d.tmp" % (options["dir"], options["jobname"],
                                  os.getpid())
@@ -632,7 +654,7 @@ def add_execution_options(parser, config):
 
 ### GUI ############################################################
 
-def make_gui(config, options, args, wrapper_gui_options):
+def make_gui(config, options, wrapper_gui_options):
     import sys
     try:
         import wx
@@ -641,7 +663,7 @@ def make_gui(config, options, args, wrapper_gui_options):
 
     app = wx.PySimpleApp()
     frame = OptionsWindow(None, -1, config["wrapper_title"], 
-                          config, options, args, wrapper_gui_options)
+                          config, options, wrapper_gui_options)
     app.MainLoop()
 
 try:
@@ -651,7 +673,7 @@ except:
 
 class OptionsWindow(wx.Frame):
     def __init__(self, parent, id, title,
-                 config, options, args, wrapper_gui_options):
+                 config, options, wrapper_gui_options):
 
         wx.Frame.__init__(self, parent, wx.ID_ANY, title)
         self.Bind(wx.EVT_CLOSE, OnCancel)
@@ -659,7 +681,6 @@ class OptionsWindow(wx.Frame):
         self.name    = title
         self.config  = config
         self.options = options
-        self.args    = args
 
         self.text_controls = []
         self.combo_controls = []
@@ -1084,13 +1105,7 @@ def add_config_XML(config, configfileXML):
 
     config["wrapper"] = wrapper
 
-def do_wrapper_XML(conffile):
-    do_wrapper(get_wrapper_cmdline_XML,
-               add_wrapper_options=add_wrapper_options_XML,
-               wrapper_gui_options=wrapper_gui_options_XML,
-               configfileXML=conffile)
-
-def get_wrapper_cmdline_XML(config, options, args):
+def get_wrapper_cmdline_XML(config, options):
 
     wrapper = config["wrapper"]
 
