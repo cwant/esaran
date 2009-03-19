@@ -32,6 +32,6 @@
 def main():
     import PBSUtil
 
-    PBSUtil.do_wrapper_XML("wrap_gromacs.xml")
+    PBSUtil.do_wrapper(configfileXML="wrap_gromacs.xml")
 
 main()
