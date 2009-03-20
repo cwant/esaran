@@ -121,6 +121,7 @@ def get_options(config):
         options["args"] = args
         seen    = parser.seen
 
+        read_merge_user_defaults(options, seen)
         make_account_defaults(config, options, seen)
 
         if (options["load_options"]):
@@ -157,7 +158,14 @@ def load_merge_options(options, file, seen=None):
     optload = pickle.load(f)
     f.close()
 
-    for key, value in optload.iteritems():
+    merge_options(options, seen, optload)
+
+def merge_options(options, seen, optsin):
+    # 'options': the regular options dict
+    # 'seen'   : records whether the option value in 'options' was set by
+    #            the user on the command line (i.e., don't overwrite)
+    # 'optsin' : is the dict of options we want to merge into 'options'
+    for key, value in optsin.iteritems():
         if seen:
             if not seen.has_key(key):
                 options[key] = value
@@ -245,10 +253,10 @@ def make_account_defaults(config, options, seen):
             host = config["hosts"][options["host"]]
 
         if seen:
-            if not seen.has_key("dir"):
+            if not seen.has_key("dir") and not options["dir"]:
                 dir = host["scratch_base"] + "/" + user
                 options["dir"] = dir
-            if not seen.has_key("email"):
+            if not seen.has_key("email") and not options["email"]:
                 email = user + "@" + host["email_base"]
                 options["email"] = email
 
@@ -1222,3 +1230,37 @@ def get_text_required_XML(element, name, parent_name):
         sys.exit(1)
 
     return text
+
+### User defaults
+
+def read_merge_user_defaults(options, seen=None):
+    import os
+    from xml.dom import minidom
+
+    optsfile = os.path.expanduser('~/.PBSUtil.xml')
+    if not os.path.isfile(optsfile):
+        return
+
+    dom = minidom.parse(optsfile)
+
+    useropts = dict()
+
+    d = dom.getElementsByTagName("defaults")
+    if len(d) > 0:
+        defaults = d[0]
+        
+    host  = get_text_XML(defaults, "host")
+    user  = get_text_XML(defaults, "user")
+    email = get_text_XML(defaults, "email")
+    dir   = get_text_XML(defaults, "dir")
+
+    if host:
+        useropts["host"] = host
+    if user:
+        useropts["user"] = user
+    if email:
+        useropts["email"] = email
+    if dir:
+        useropts["dir"] = dir
+
+    merge_options(options, seen, useropts)
