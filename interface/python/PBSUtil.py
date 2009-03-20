@@ -707,6 +707,7 @@ class OptionsWindow(wx.Frame):
         self.text_controls = []
         self.combo_controls = []
         self.spin_controls = []
+        self.checkbox_controls = []
 
         panel = wx.Panel(self, -1)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -885,6 +886,9 @@ def pbs_gui_options(subpanel, config, options):
     fields.append(add_text_control(subpanel,
                                    "output",
                                    "Output files:"))
+    fields.append(add_checkbox_control(subpanel,
+                                       "rsync",
+                                       "Rsync:"))
 
     return (title, fields)
 
@@ -959,6 +963,21 @@ def add_spin_control(panel, name, label):
     
     ctrl.Bind(wx.EVT_TEXT, handle_ctrl)
     optwin.spin_controls.append(ctrl)
+
+    return ([label, ctrl])
+
+def add_checkbox_control(panel, name, label):
+    optwin  = panel.GetTopLevelParent()
+    options = optwin.options
+    config  = optwin.config
+
+    label = wx.StaticText(panel, label=label)
+    if (not options[name]):
+        options[name] = 0
+    ctrl  = wx.CheckBox(panel, name=name)
+    ctrl.SetValue(options[name])
+    ctrl.Bind(wx.EVT_CHECKBOX, handle_ctrl)
+    optwin.checkbox_controls.append(ctrl)
 
     return ([label, ctrl])
 
