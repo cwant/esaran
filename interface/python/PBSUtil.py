@@ -276,11 +276,11 @@ def add_file_transfer_options(parser, config):
 
     ### Rsync
     g.add_option("-r", "--rsync", action="callback",
-                 callback=store_true_seen, type="string",
+                 callback=store_true_seen,
                  dest="rsync",
                  default=False,
-                 help="The name of the job that is submitted to " + \
-                     "the HPC resource (default: %default)")
+                 help="Use rsync to transfer files to the HPC resource " + \
+                     "instead of tar/scp")
 
     ### Add options ########################
     
@@ -448,6 +448,16 @@ def make_pbs_script(executable, workdir, config, options):
     subs.update(config['hosts'][options["host"]])
     subs['executable'] = executable
     subs['workdir']    = workdir 
+    if options["rsync"]:
+        rsync_message = """\
+
+Alternatively, you may obtain your output by using:
+    rsync -az %(user)s@%(host)s:%(workdir)s/ .
+
+""" % (subs)
+    else:
+        rsync_message = ""
+    subs["rsync_message"] = rsync_message
 
     if (len(options["output"])>0):
         subs["outfiles"] = options["output"]
@@ -512,6 +522,7 @@ Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
 Content-Type: text/plain
 
 Here is the output from ${JOBNAME}.
+%(rsync_message)s
 ---q1w2e3r4t5
 Content-Type: application; name=${OUTPUT}
 Content-Transfer-Encoding: base64
@@ -552,6 +563,9 @@ Content-Type: text/plain
  You can obtain your file at:
 
    %(webserver_site)s
+
+%(rsync_message)s
+
 EOF_MAIL
 ) | %(mail_command)s
 
