@@ -1250,6 +1250,14 @@ def get_text_required_XML(element, name, parent_name):
 
     return text
 
+def get_boolean_XML(element, name):
+    node = element.getElementsByTagName(name)
+    
+    if node:
+        return True
+
+    return False
+
 ### User defaults
 
 def read_merge_user_defaults(options, seen=None):
@@ -1272,6 +1280,7 @@ def read_merge_user_defaults(options, seen=None):
     user  = get_text_XML(defaults, "user")
     email = get_text_XML(defaults, "email")
     dir   = get_text_XML(defaults, "dir")
+    rsync = get_boolean_XML(defaults, "rsync")
 
     if host:
         useropts["host"] = host
@@ -1281,5 +1290,7 @@ def read_merge_user_defaults(options, seen=None):
         useropts["email"] = email
     if dir:
         useropts["dir"] = dir
+    if rsync:
+        useropts["rsync"] = rsync
 
     merge_options(options, seen, useropts)
