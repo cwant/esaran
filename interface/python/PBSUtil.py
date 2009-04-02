@@ -1276,11 +1276,15 @@ def read_merge_user_defaults(options, seen=None):
     if len(d) > 0:
         defaults = d[0]
         
-    host  = get_text_XML(defaults, "host")
-    user  = get_text_XML(defaults, "user")
-    email = get_text_XML(defaults, "email")
-    dir   = get_text_XML(defaults, "dir")
-    rsync = get_boolean_XML(defaults, "rsync")
+    host     = get_text_XML(defaults, "host")
+    user     = get_text_XML(defaults, "user")
+    email    = get_text_XML(defaults, "email")
+    dir      = get_text_XML(defaults, "dir")
+    notify   = get_text_XML(defaults, "notify")
+    walltime = get_text_XML(defaults, "walltime")
+    pvmem    = get_text_XML(defaults, "pvmem")
+    rsync    = get_boolean_XML(defaults, "rsync")
+    gui      = get_boolean_XML(defaults, "gui")
 
     if host:
         useropts["host"] = host
@@ -1290,7 +1294,17 @@ def read_merge_user_defaults(options, seen=None):
         useropts["email"] = email
     if dir:
         useropts["dir"] = dir
+    if notify:
+        useropts["notify"] = notify
+    if walltime:
+        useropts["walltime"] = walltime
+    if pvmem:
+        useropts["pvmem"] = pvmem
     if rsync:
         useropts["rsync"] = rsync
+    if gui:
+        useropts["gui"] = gui
 
     merge_options(options, seen, useropts)
+
+    dom.unlink()
