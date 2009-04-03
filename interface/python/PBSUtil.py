@@ -129,6 +129,8 @@ def get_options(config):
         if (options["gui"]):
             make_gui(config, options, config["wrapper_gui_options"])
 
+        options['seen'] = seen
+
     return options
     
 def obj_to_dict(options_obj):
@@ -324,25 +326,34 @@ def add_pbs_options(parser, config):
                      "the HPC resource (default: %default)")
 
     ### Memory Requirements
+    g.add_option("-M", "--mem", action="callback",
+                 callback=store_seen, type="string",
+                 dest="mem", metavar="MEM",
+                 help="The total amount of memory required")
+
+    ### Per processor Memory Requirements
     g.add_option("-m", "--pvmem", action="callback",
                  callback=store_seen, type="string",
-                 dest="pvmem", metavar="MEMORY", default="512mb",
-                 help="The s ze of memory required " + \
-                     "(default: %default)")
+                 dest="pvmem", metavar="MEMORY",
+                 help="The amount of per-processor memory required")
 
     ### Nodes
     g.add_option("-n", "--nodes", action="callback",
                  callback=store_seen, type="int",
-                 dest="nodes", metavar="NODES", default="1",
-                 help="The number of nodes required " + \
-                     "(default: %default)")
+                 dest="nodes", metavar="NODES",
+                 help="The number of nodes required")
+
+    ### Processors
+    g.add_option("-P", "--procs", action="callback",
+                 callback=store_seen, type="int",
+                 dest="procs", metavar="PROCS",
+                 help="The total number of processors required")
 
     ### Processors per node
     g.add_option("-p", "--ppn", action="callback",
                  callback=store_seen, type="int",
-                 dest="ppn", metavar="PROCPERNODE", default="1",
-                 help="The number of processors per node required" +
-                     "(default: %default)")
+                 dest="ppn", metavar="PROCPERNODE",
+                 help="The number of processors per node required")
 
     ### Wall time
     g.add_option("-w", "--walltime", action="callback",
@@ -445,6 +456,53 @@ def submit_job(config, options):
     transfer_files(workfile, workdir, config, options)
     queue_pbs_script(workfile, workdir, config, options)
 
+def get_cpu_spec(config, options):
+    host = config['hosts'][options['host']]
+    cpu_specs = host['pbs_options']['cpu_specs']
+    subs = dict()
+
+    # String substitution interprets 'None' as a string, so
+    # we need to massage input
+    if options['nodes']:
+        subs['nodes'] = options['nodes']
+    if options['ppn']:
+        subs['ppn'] = options['ppn']
+    if options['procs']:
+        subs['procs'] = options['procs']
+
+    for cpu_spec in cpu_specs:
+        # Try to substitute variables from options into the
+        # cpu_spec string
+        try:
+            s = cpu_spec % (subs)
+            return s
+        except:
+            continue
+        
+    return ""
+
+def get_mem_spec(config, options):
+    host = config['hosts'][options['host']]
+    mem_specs = host['pbs_options']['mem_specs']
+    subs = dict()
+
+    # String substitution interprets 'None' as a string, so
+    # we need to massage input
+    if options['pvmem']:
+        subs['pvmem'] = options['pvmem']
+    if options['mem']:
+        subs['mem'] = options['mem']
+    for mem_spec in mem_specs:
+        # Try to substitute variables from options into the
+        # mem_spec string
+        try:
+            s = mem_spec % (subs)
+            return s
+        except:
+            continue
+        
+    return ""
+
 ### Create PBS Script
 def make_pbs_script(executable, workdir, config, options):
     pbs = open("pbs_script.pbs", "w")
@@ -485,14 +543,17 @@ Alternatively, you may obtain your output by using:
         # otherwise, just run sendmail
         subs['mail_command'] = "%s -t" % (subs['sendmail'])
 
+    subs['mem_spec'] = get_mem_spec(config, options)
+    subs['cpu_spec'] = get_cpu_spec(config, options)
+
     ### PBS SCRIPT START
     pbs.write("""\
 #!/bin/bash -l
 #PBS -S /bin/bash
 #PBS -N %(jobname)s
 %(queue)s
-#PBS -l pvmem=%(pvmem)s
-#PBS -l nodes=%(nodes)d:ppn=%(ppn)d
+%(mem_spec)s
+%(cpu_spec)s
 #PBS -l walltime=%(walltime)s
 #PBS -m %(notify)s
 #PBS -M %(email)s
@@ -866,14 +927,20 @@ def pbs_gui_options(subpanel, config, options):
                                    "Job name:",
                                    width=30))
     fields.append(add_text_control(subpanel,
+                                   "mem",
+                                   "Total memory required:"))
+    fields.append(add_text_control(subpanel,
                                    "pvmem",
-                                   "Memory required:"))
+                                   "Per-processor memory required:"))
     fields.append(add_spin_control(subpanel,
-                                  "nodes",
-                                  "Number of nodes:"))
+                                   "nodes",
+                                   "Number of nodes:"))
     fields.append(add_spin_control(subpanel,
-                                  "ppn",
-                                  "Processors per node:"))
+                                   "ppn",
+                                   "Processors per node:"))
+    fields.append(add_spin_control(subpanel,
+                                   "procs",
+                                   "Total number of processors:"))
     fields.append(add_text_control(subpanel,
                                    "walltime",
                                    "Wall time:"))
@@ -1047,21 +1114,43 @@ def get_hosts_config_XML(hostsconf):
         host["scratch_base"] = get_text_XML(h, "scratch_base")
         # email_base
         host["email_base"] = get_text_XML(h, "email_base")
-
-        # Queues
-        qs = h.getElementsByTagName("queue")
+        
+        # PBS Options
+        pbs = dict()
+        p = h.getElementsByTagName("pbs_options")
         queues = []
-        host["queues"] = queues
-        for q in qs:
-            queue = dict()
-            name = get_text_XML(q, "name")
-            if name:
-                queue["name"] = name
-            else:
-                print "Queue must have a name!"
-                sys.exit(1)
-            queues.append(queue)
+        mem_specs = []
+        cpu_specs = []
+        if len(p) > 0:
+            # Queues
+            qs = p[0].getElementsByTagName("queue")
+            for q in qs:
+                queue = dict()
+                name = get_text_XML(q, "name")
+                if name:
+                    queue["name"] = name
+                else:
+                    print "Queue must have a name!"
+                    sys.exit(1)
+                queues.append(queue)
 
+        
+            # mem_spec
+            ms = p[0].getElementsByTagName("mem_spec")
+            for m in ms:
+                mem_spec = get_text_XML(m)
+                mem_specs.append(mem_spec)
+
+            # cpu_spec
+            cs = p[0].getElementsByTagName("cpu_spec")
+            for c in cs:
+                cpu_spec = get_text_XML(c)
+                cpu_specs.append(cpu_spec)
+
+        pbs["queues"] = queues
+        pbs["mem_specs"] = mem_specs
+        pbs["cpu_specs"] = cpu_specs
+        host["pbs_options"] = pbs
     dom.unlink()
 
     # Grab missing host attributes from the host called "defaults"
@@ -1233,7 +1322,10 @@ def wrapper_gui_options_XML(subpanel, config, options):
     return (title, fields)
 
 # Helper for getting text out of Element nodes
-def get_text_XML(element, name):
+def get_text_XML(element, name=None):
+    if not name:
+        return str(element.childNodes[0].data)
+
     node = element.getElementsByTagName(name)
     
     if node:

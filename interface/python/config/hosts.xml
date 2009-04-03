@@ -1,4 +1,7 @@
 <hosts>
+
+<!-- DEFAULTS -->
+
   <host type="defaults">
 	<sendmail>/usr/sbin/sendmail</sendmail>
 	<tar>/bin/tar</tar>
@@ -6,39 +9,102 @@
 	<scratch_base>/scratch</scratch_base>
   </host>
 
+<!-- CLUSTER.SRV -->
+
   <host>
     <name>cluster.srv.ualberta.ca</name>
 	<mail_host>10.0.6.1</mail_host>
+	<pbs_options>
+	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
+	  <mem_spec>#PBS -l pvmem=%(pvmem)s</mem_spec>
+	</pbs_options>
   </host>
+
+<!-- NUM.SRV -->
 
   <host>
     <name>num.srv.ualberta.ca</name>
 	<scratch_base>/scratch_shared</scratch_base>
   </host>
 
+<!-- NEXUS -->
+
   <host>
     <name>nexus.westgrid.ca</name>
 	<sendmail>/usr/lib/sendmail</sendmail>
 	<tar>/usr/freeware/bin/tar</tar>
 	<scratch_base>/site/home</scratch_base>
-	<queues>
-	  <queue><name>nexus</name></queue>
-	  <queue><name>arcturus</name></queue>
-	  <queue><name>australis</name></queue>
-	  <queue><name>helios</name></queue>
-	</queues>
+	<pbs_options>
+	  <cpu_spec>#PBS -l ncpus=%(procs)d</cpu_spec>
+	  <queues>
+		<queue><name>nexus</name></queue>
+		<queue><name>arcturus</name></queue>
+		<queue><name>australis</name></queue>
+		<queue><name>helios</name></queue>
+	  </queues>
+	</pbs_options>
   </host>
+
+<!-- CORTEX -->
 
   <host>
     <name>cortex.westgrid.ca</name>
 	<tar>/usr/freeware/bin/tar</tar>
 	<scratch_base>/site/home</scratch_base>
-	<queues>
-	  <queue><name>q1</name></queue>
-	  <queue><name>q2</name></queue>
-	  <queue><name>q3</name></queue>
-	  <queue><name>pwr4</name></queue>
-	</queues>
+	<pbs_options>
+	  <cpu_spec>#PBS -l ncpus=%(procs)d</cpu_spec>
+	  <queues>
+		<queue><name>q1</name></queue>
+		<queue><name>q2</name></queue>
+		<queue><name>q3</name></queue>
+		<queue><name>pwr4</name></queue>
+	  </queues>
+	</pbs_options>
+  </host>
+
+<!-- GLACIER -->
+
+  <host>
+    <name>glacier.westgrid.ca</name>
+	<scratch_base>/global/scratch</scratch_base>
+	<pbs_options>
+	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
+	  <mem_spec>#PBS -l mem=%(mem)s</mem_spec>
+	</pbs_options>
+  </host>
+
+<!-- MATRIX -->
+
+  <host>
+    <name>matrix.westgrid.ca</name>
+	<pbs_options>
+	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
+	  <mem_spec>#PBS -l mem=%(mem)s</mem_spec>
+	</pbs_options>
+  </host>
+
+<!-- LATTICE -->
+
+  <host>
+    <name>glacier.westgrid.ca</name>
+	<tar>/usr/local/gnu/tar</tar>
+	<pbs_options>
+	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
+	  <mem_spec>#PBS -l mem=%(mem)s</mem_spec>
+	</pbs_options>
+  </host>
+
+
+<!-- SNOWPATCH -->
+
+  <host>
+    <name>snowpatch.westgrid.ca</name>
+	<scratch_base>/global/scratch</scratch_base>
+	<pbs_options>
+	  <cpu_spec>#PBS -l procs=%(procs)d</cpu_spec>
+	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
+	  <mem_spec>#PBS -l mem=%(mem)s</mem_spec>
+	</pbs_options>
   </host>
 
 </hosts>
