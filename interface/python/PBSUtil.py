@@ -87,7 +87,9 @@ def do_wrapper(get_wrapper_cmdline="",
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(config, options)
-    submit_job(config, options)
+    jobid = submit_job(config, options)
+    print "Your PBS Job ID is ", jobid
+    return jobid
 
 def queue_program(options_in):
     config = get_config(get_wrapper_cmdline=get_cmdline_dict,
@@ -111,7 +113,7 @@ def queue_program(options_in):
     read_merge_user_defaults(options, seen)
     validate_options(config, options)
     set_up_ssh(config, options)
-    submit_job(config, options)
+    return submit_job(config, options)
 
 ### Get Config
 def get_config(get_wrapper_cmdline="",
@@ -442,7 +444,7 @@ def ssh_keys_loaded():
 def test_ssh_key(options):
     import subprocess
     exitcode = subprocess.call("ssh -o NumberOfPasswordPrompts=0 " + \
-                                   "%s -l %s date" % \
+                                   "%s -l %s 'date > /dev/null'" % \
                                    (options["host"],
                                     options["user"]),
                                shell=True)
@@ -518,7 +520,7 @@ def submit_job(config, options):
     make_pbs_script(executable, workdir, config, options)
     create_workdir(workdir, config, options)
     transfer_files(workfile, workdir, config, options)
-    queue_pbs_script(workfile, workdir, config, options)
+    return queue_pbs_script(workfile, workdir, config, options)
 
 def get_cpu_spec(config, options):
     host = config['hosts'][options['host']]
@@ -756,6 +758,8 @@ def transfer_workfile(workfile, workdir, config, options):
 
 def queue_pbs_script(workfile, workdir, config, options):
     import subprocess
+    PIPE = subprocess.PIPE
+
     if options["rsync"]:
         tar =""
     else:
@@ -767,7 +771,13 @@ def queue_pbs_script(workfile, workdir, config, options):
         "'cd %s; "  % (workdir) + \
         tar + "qsub pbs_script.pbs'"
   
-    exitcode = subprocess.call(command, shell=True)
+    p = subprocess.Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate()
+    exitcode = p.wait()
+    if exitcode == 0:
+        return stdout.strip()
+    else:
+        return NONE
 
 def run_qstat(config, options):
     import subprocess
