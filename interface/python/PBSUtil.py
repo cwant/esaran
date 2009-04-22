@@ -32,15 +32,45 @@
 Helper module for executing PBS jobs remotely.
 """
 
+# Set a few defaults, and ensure that dict entries exist
+default_options = {
+    'user'     : "",
+    'host'     : "cluster.srv.ualberta.ca",
+    'dir'      : "",
+    'email'    : "",
+    'key'      : "",
+    'jobname'  : "job1",
+    'queue'    : "",
+    'pvmem'    : "",
+    'mem'      : "",
+    'nodes'    : "",
+    'ppn'      : "",
+    'procs'    : "",
+    'walltime' : "24:00:00",
+    'notify'   : "bea",
+    'input'    : "",
+    'output'   : "",
+    'rsync'    : False,
+    }
+
 ### Main Entry Point
+#
+# Callback prototypes:
+#
+#     get_wrapper_cmdline(config, options)
+#
+#     add_wrapper_options(parser, config)
+#
+#     wrapper_gui_options(subpanel, config, options)
+#
+#     add_wrapper_validators(config)
+#
 def do_wrapper(get_wrapper_cmdline="",
                wrapper_title="",
                add_wrapper_options=None,
                wrapper_gui_options=None,
                add_wrapper_validators=None,
                configfileXML=""):
-    # add_wrapper_options() add_gui_controls(), and 
-    # get_wrapper_cmdline() are callbacks
 
     config = get_config(get_wrapper_cmdline,
                         wrapper_title,
@@ -59,8 +89,28 @@ def do_wrapper(get_wrapper_cmdline="",
     set_up_ssh(config, options)
     submit_job(config, options)
 
-### Get Config
+def queue_program(options):
+    config = get_config(get_wrapper_cmdline=get_cmdline_dict,
+                        wrapper_title="",
+                        add_wrapper_options=None,
+                        wrapper_gui_options=None,
+                        add_wrapper_validators=add_validators_dict,
+                        configfileXML="")
 
+    # Record attributes in the dict "options" as seen
+    seen = dict()
+
+    for key, val in options.iteritems():
+        seen[key] = True
+
+    merge_options(options, seen, default_options)
+    make_account_defaults(config, options, seen)
+    read_merge_user_defaults(options, seen)
+    validate_options(config, options)
+    set_up_ssh(config, options)
+    submit_job(config, options)
+
+### Get Config
 def get_config(get_wrapper_cmdline="",
                wrapper_title="",
                add_wrapper_options=None,
@@ -203,7 +253,7 @@ def add_account_options(parser, config):
     g.add_option("-H", "--host", action="callback",
                  callback=store_seen, type="string",
                  dest="host", metavar="HOST",
-                 default="cluster.srv.ualberta.ca",
+                 default=default_options['host'],
                  help="The name of the host the job will run on " + \
                      "(default: %default)")
     
@@ -249,6 +299,12 @@ def add_account_options(parser, config):
     parser.add_option_group(g)
 
 def make_account_defaults(config, options, seen):
+
+
+    if options.has_key("dir") and options["dir"]:
+        user = options["user"]
+    
+
     if options["user"]:
         user = options["user"]
         if options["host"] in config["hosts"].keys():
@@ -272,7 +328,7 @@ def add_file_transfer_options(parser, config):
     g.add_option("-i", "--input", action="callback",
                  callback=store_seen, type="string",
                  dest="input", metavar="FILE1 FILE2 ...",
-                 default="",
+                 default=default_options['input'],
                  help="Files to transfer to remote working directory " + \
                      "(default: send all files in current directory)")
     
@@ -280,7 +336,7 @@ def add_file_transfer_options(parser, config):
     g.add_option("-o", "--output", action="callback",
                  callback=store_seen, type="string",
                  dest="output", metavar="FILE1 FILE2 ...",
-                 default="",
+                 default=default_options['output'],
                  help="Files to send back to the user on job completion " + \
                      "(default: send all files in remote working directory)")
 
@@ -288,7 +344,7 @@ def add_file_transfer_options(parser, config):
     g.add_option("-r", "--rsync", action="callback",
                  callback=store_true_seen,
                  dest="rsync",
-                 default=False,
+                 default=default_options['rsync'],
                  help="Use rsync to transfer files to the HPC resource " + \
                      "instead of tar/scp")
 
@@ -305,7 +361,7 @@ def add_pbs_options(parser, config):
     g.add_option("-q", "--queue", action="callback",
                  callback=store_seen, type="string",
                  dest="queue", metavar="QUEUE",
-                 default="",
+                 default=default_options['queue'],
                  help="Queue to submit to (if missing, submit to default " + \
                      "queue for host)")
     
@@ -313,7 +369,7 @@ def add_pbs_options(parser, config):
     g.add_option("-E", "--notify", action="callback",
                  callback=store_seen, type="string",
                  dest="notify", metavar="[b][e][a]",
-                 default="bea",
+                 default=default_options['notify'],
                  help="Email notifications before (b) the job runs, " + \
                      "or after (a) the job runs, or on errors (e) " + \
                      "(default: %default)")
@@ -321,7 +377,8 @@ def add_pbs_options(parser, config):
     ### Job Name
     g.add_option("-N", "--jobname", action="callback",
                  callback=store_seen, type="string",
-                 dest="jobname", metavar="JOBNAME", default="job1",
+                 dest="jobname", metavar="JOBNAME",
+                 default=default_options['jobname'],
                  help="The name of the job that is submitted to " + \
                      "the HPC resource (default: %default)")
 
@@ -358,7 +415,8 @@ def add_pbs_options(parser, config):
     ### Wall time
     g.add_option("-w", "--walltime", action="callback",
                  callback=store_seen, type="string",
-                 dest="walltime", metavar="WALLTIME", default="24:00:00",
+                 dest="walltime", metavar="WALLTIME",
+                 default=default_options['24:00:00'],
                  help="The maximum time required to run the job " +
                  "(default: %default)")
 
@@ -406,9 +464,12 @@ def set_up_ssh(config, options):
 
     # Check if there is an ssh-agent running -- if not, re-run self in
     # an agent.
-    if (options["key"]):
-        key = options["key"]
-    else:
+    try:
+        if (options["key"]):
+            key = options["key"]
+        else:
+            key = ""
+    except:
         key = ""
 
     ssh_auth = os.getenv("SSH_AUTH_SOCK")
@@ -1059,7 +1120,10 @@ def get_validators():
 
 def validate_options(config, options):
     for name, validator in config["validators"].iteritems():
-        value = options[name]
+        if options.has_key(name):
+            value = options[name]
+        else:
+            value = None
         validator(config, options, value)
 
 def validate_host(config, options, value):
@@ -1080,7 +1144,12 @@ def get_hosts_config_XML(hostsconf):
     from xml.dom import minidom
 
     # Read host config from XML file
-    conf = os.path.dirname(__file__) + "/config/" + hostsconf
+    confbase = os.path.dirname(__file__)
+    if len(confbase)==0:
+        confbase = "."
+
+    conf = confbase + "/config/" + hostsconf
+
     dom = minidom.parse(conf)
 
     hosts = dict()
@@ -1400,3 +1469,20 @@ def read_merge_user_defaults(options, seen=None):
     merge_options(options, seen, useropts)
 
     dom.unlink()
+
+def get_cmdline_dict(config, options):
+    return options['exe']
+
+def needs_exe(config, options, value):
+    if not value:
+        error_exit("An 'exe' dictionary item is needed!\n")
+
+def add_validators_dict(config):
+    config['validators']['exe'] = needs_exe
+
+def error_exit(message):
+    import sys
+
+    sys.stderr.write(message)
+    sys.exit(1)
+
