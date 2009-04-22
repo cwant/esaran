@@ -89,7 +89,7 @@ def do_wrapper(get_wrapper_cmdline="",
     set_up_ssh(config, options)
     submit_job(config, options)
 
-def queue_program(options):
+def queue_program(options_in):
     config = get_config(get_wrapper_cmdline=get_cmdline_dict,
                         wrapper_title="",
                         add_wrapper_options=None,
@@ -98,7 +98,10 @@ def queue_program(options):
                         configfileXML="")
 
     # Record attributes in the dict "options" as seen
+    options = dict()
     seen = dict()
+
+    merge_options(options, None, options_in)
 
     for key, val in options.iteritems():
         seen[key] = True
