@@ -775,9 +775,18 @@ def queue_pbs_script(workfile, workdir, config, options):
     stdout, stderr = p.communicate()
     exitcode = p.wait()
     if exitcode == 0:
-        return stdout.strip()
+        # Output looks like 90210.opteron-cluster.nic.ualberta.ca
+        # We only want the number in the front
+        return stdout.strip().split(".")[0]
     else:
         return NONE
+
+def job_delete(options, jobid):
+    import subprocess
+    exitcode = subprocess.call("ssh %s@%s " %
+                               (options["user"], options["host"]) +
+                               "'qdel %s'" % jobid,
+                               shell=True)
 
 def run_qstat(config, options):
     import subprocess
