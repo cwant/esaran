@@ -87,33 +87,10 @@ def do_wrapper(get_wrapper_cmdline="",
 
     # Set up ssh keys, respawning if needed
     set_up_ssh(config, options)
-    jobid = submit_job(config, options)
+    (jobid, workdir) = submit_job(config, options)
     print "Your PBS Job ID is ", jobid
+    print "The remote working directory is ", workdir
     return jobid
-
-def queue_program(options_in):
-    config = get_config(get_wrapper_cmdline=get_cmdline_dict,
-                        wrapper_title="",
-                        add_wrapper_options=None,
-                        wrapper_gui_options=None,
-                        add_wrapper_validators=add_validators_dict,
-                        configfileXML="")
-
-    # Record attributes in the dict "options" as seen
-    options = dict()
-    seen = dict()
-
-    merge_options(options, None, options_in)
-
-    for key, val in options.iteritems():
-        seen[key] = True
-
-    merge_options(options, seen, default_options)
-    make_account_defaults(config, options, seen)
-    read_merge_user_defaults(options, seen)
-    validate_options(config, options)
-    set_up_ssh(config, options)
-    return submit_job(config, options)
 
 ### Get Config
 def get_config(get_wrapper_cmdline="",
@@ -520,7 +497,9 @@ def submit_job(config, options):
     make_pbs_script(executable, workdir, config, options)
     create_workdir(workdir, config, options)
     transfer_files(workfile, workdir, config, options)
-    return queue_pbs_script(workfile, workdir, config, options)
+
+    jobid = queue_pbs_script(workfile, workdir, config, options)
+    return (jobid, workdir)
 
 def get_cpu_spec(config, options):
     host = config['hosts'][options['host']]
@@ -781,20 +760,73 @@ def queue_pbs_script(workfile, workdir, config, options):
     else:
         return NONE
 
+def job_submit(options_in):
+    config = get_config(get_wrapper_cmdline=get_cmdline_dict,
+                        wrapper_title="",
+                        add_wrapper_options=None,
+                        wrapper_gui_options=None,
+                        add_wrapper_validators=add_validators_dict,
+                        configfileXML="")
+
+    # Record attributes in the dict "options" as seen
+    options = dict()
+    seen = dict()
+
+    merge_options(options, None, options_in)
+
+    for key, val in options.iteritems():
+        seen[key] = True
+
+    merge_options(options, seen, default_options)
+    make_account_defaults(config, options, seen)
+    read_merge_user_defaults(options, seen)
+    validate_options(config, options)
+    set_up_ssh(config, options)
+    return submit_job(config, options)
+
 def job_delete(options, jobid):
     import subprocess
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
                                "'qdel %s'" % jobid,
                                shell=True)
+    return exitcode
 
-def run_qstat(config, options):
+def job_status(options, jobid=None, full=False):
     import subprocess
+    stat = "qstat"
+    if (full):
+        stat += " -f"
+    if (jobid):
+        stat += " %s" % (jobid)
+
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
-                               "'qstat'",
+                               "'%s'" % (stat),
                                shell=True)
+    return exitcode
 
+def job_fetch(options, workdir):
+    import subprocess
+    if not options["rsync"]:
+        print "job_fetch needs the rsync option!"
+        return 1
+
+    inclexcl = ""
+    if (len(options["output"])>0):
+        files = options["output"].split()
+        for file in files:
+            inclexcl += "--include '%s' " % (file)
+        inclexcl += "--exclude '/*'"
+
+    command = "rsync -az %s %s@%s:%s/ ." % (inclexcl,
+                                            options["user"],
+                                            options["host"],
+                                            workdir)
+
+    exitcode = subprocess.call(command, shell=True)
+    return exitcode
+    
 def add_execution_options(parser, config):
     import optparse
 
