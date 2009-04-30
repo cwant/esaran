@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# $Id$
+# $Id: wrap_qstat.py 73 2009-03-19 21:40:30Z cwant $
 #
 # Copyright (c) 2009, Chris Want, Research Support Group,
 # AICT, University of Alberta. All rights reserved.
@@ -30,7 +30,7 @@
 #
 
 def main():
-    import os, optparse, PBSUtil
+    import sys, os, optparse, PBSUtil
 
     config = PBSUtil.get_config()
 
@@ -38,15 +38,29 @@ def main():
         # We have been respawned, load pickled options
         options = PBSUtil.load_program_args()
     else:
-        parser = optparse.OptionParser()
-        PBSUtil.add_account_options(parser, config)
+        usage = "%prog [options] JOBID.out\n\n" + \
+            "JOBID.out is the job identifier file created " + \
+            "when the job was submitted"
+
+        parser = optparse.OptionParser(usage=usage)
+        PBSUtil.add_misc_options(parser, config)
+
         (options_obj, args) = parser.parse_args()
+        if (len(args) > 1):
+            sys.stderr.write("Too many files on the command line!\n")
+            sys.exit(1)
+        if (len(args) < 1):
+            sys.stderr.write("Need a file on the command line!\n")
+            sys.exit(1)
+
+        (options_id, jobid, workdir) = PBSUtil.read_jobid_file(args[0])
         options = PBSUtil.obj_to_dict(options_obj)
+        PBSUtil.merge_options(options, None, options_id)
 
     PBSUtil.validate_host(config, options, options["host"])
 
     PBSUtil.set_up_ssh(config, options)
 
-    PBSUtil.run_qstat(config, options)
+    PBSUtil.job_delete(options, jobid)
 
 main()

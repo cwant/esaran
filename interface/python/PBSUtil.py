@@ -51,6 +51,7 @@ default_options = {
     'input'    : "",
     'output'   : "",
     'rsync'    : False,
+    'verbose'  : True
     }
 
 ### Main Entry Point
@@ -88,9 +89,69 @@ def do_wrapper(get_wrapper_cmdline="",
     # Set up ssh keys, respawning if needed
     set_up_ssh(config, options)
     (jobid, workdir) = submit_job(config, options)
-    print "Your PBS Job ID is ", jobid
-    print "The remote working directory is ", workdir
-    return jobid
+
+    if (options['verbose']):
+        print_job_summary(options, jobid, workdir)
+
+    jobid_out = write_jobid_file(options, jobid, workdir)
+
+    return (jobid, workdir)
+
+def print_job_summary(options, jobid, workdir):
+    print "Job submission summary:"
+    print "  Username: ", options['user']
+    print "  Host name: ", options['host']
+    print "  Your PBS Job ID is ", jobid
+    print "  The remote working directory is ", workdir
+
+def write_jobid_file(options, jobid, workdir):
+    import pickle, sys, os
+    file = "%s_%s.out" % (jobid, os.getpid())
+
+    try:
+        f = open(file, "wb")
+    except:
+        sys.stderr.write("Unable to open file for saving!\n")
+        sys.exit(1)
+
+    pickle.dump(options, f)
+    pickle.dump(jobid, f)
+    pickle.dump(workdir, f)
+    f.close()
+
+    if options['verbose']:
+        print "-----------------------------------"
+        print "Wrote job identifier file: %s" % (file)
+        print "  To check the status of your job, use:"
+        print "     python job_status.py %s" % (file)
+        print "  To delete your job, use:"
+        print "     python job_delete.py %s" % (file)
+        print "  You will recieve an email when your job is finished."
+        if (options['rsync']):
+            print "  To recieve your output, use:"
+            print "     python job_fetch.py %s" % (file)
+        else:
+            print "  Your output will be attached to the email."
+        print "-----------------------------------"
+
+    return file
+
+def read_jobid_file(file):
+    import pickle
+
+    try:
+        f = open(file, "rb")
+    except:
+        sys.stderr.write("Unable to open file for loading!\n")
+        sys.exit(1)
+
+    options = pickle.load(f)
+    jobid   = pickle.load(f)
+    workdir = pickle.load(f)
+
+    f.close()
+
+    return (options, jobid, workdir)
 
 ### Get Config
 def get_config(get_wrapper_cmdline="",
@@ -145,6 +206,7 @@ def get_options(config):
         add_account_options(parser, config)
         add_file_transfer_options(parser, config)
         add_pbs_options(parser, config)
+        add_misc_options(parser, config)
         add_execution_options(parser, config)
 
         parser.seen = dict()
@@ -340,7 +402,7 @@ def add_pbs_options(parser, config):
     g = optparse.OptionGroup(parser, "Job Scheduling options")
 
     ### Queue
-    g.add_option("-q", "--queue", action="callback",
+    g.add_option("-Q", "--queue", action="callback",
                  callback=store_seen, type="string",
                  dest="queue", metavar="QUEUE",
                  default=default_options['queue'],
@@ -398,9 +460,31 @@ def add_pbs_options(parser, config):
     g.add_option("-w", "--walltime", action="callback",
                  callback=store_seen, type="string",
                  dest="walltime", metavar="WALLTIME",
-                 default=default_options['24:00:00'],
+                 default=default_options['walltime'],
                  help="The maximum time required to run the job " +
                  "(default: %default)")
+
+    ### Add options ########################
+    
+    parser.add_option_group(g)
+
+
+
+def add_misc_options(parser, config):
+    import os, optparse
+
+    g = optparse.OptionGroup(parser, "Miscellaneous options")
+
+    ### Verbose
+    g.add_option("-v", "--verbose", action="store_true",
+                 dest="verbose", default=default_options['verbose'],
+                 help="Produce output to terminal")
+
+
+    ### Quiet
+    g.add_option("-q", "--quiet", action="store_false",
+                 dest="verbose",
+                 help="Silence program output")
 
     ### Add options ########################
     
