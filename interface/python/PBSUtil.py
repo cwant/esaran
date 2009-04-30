@@ -542,7 +542,7 @@ def set_up_ssh(config, options):
     if (not ssh_auth):
         pipe = subprocess.Popen("SSH_AGENT_RESPAWN=TRUE ssh-agent python %s"
                                 % sys.argv[0],
-                                stdin=SubProcess.PIPE, shell=True);
+                                stdin=subprocess.PIPE, shell=True);
         pickle.dump(options, pipe.stdin)
         pipe.stdin.flush()
         sts = os.waitpid(pipe.pid, 0)
