@@ -842,7 +842,7 @@ def queue_pbs_script(workfile, workdir, config, options):
         # We only want the number in the front
         return stdout.strip().split(".")[0]
     else:
-        return NONE
+        return None
 
 def job_submit(options_in):
     config = get_config(get_wrapper_cmdline=get_cmdline_dict,
