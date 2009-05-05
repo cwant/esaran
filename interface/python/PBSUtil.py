@@ -910,7 +910,7 @@ def job_status(options, jobid=None, full=False):
                                shell=True)
     return exitcode
 
-def job_fetch(options, workdir):
+def job_fetch(options, workdir, clean=False):
     import subprocess
     if not options["rsync"]:
         print "job_fetch needs the rsync option!"
@@ -929,6 +929,26 @@ def job_fetch(options, workdir):
                                             workdir)
 
     exitcode = subprocess.call(command, shell=True)
+
+    if clean:
+        if (exitcode == 0):
+            exitcode = job_clean(options, workdir)
+        else:
+            print "Fetch was not successful, not cleaning!"
+
+    return exitcode
+
+def job_clean(options, workdir):
+    import subprocess
+
+    command = "ssh %s@%s " % (options["user"], options["host"]) + \
+        "'rm -rf %s'" % (workdir)
+
+    print "Cleaning remote work directory: %s@%s:%s" % \
+        (options["user"], options["host"], workdir)
+
+    exitcode = subprocess.call(command, shell=True)
+
     return exitcode
     
 def add_execution_options(parser, config):
