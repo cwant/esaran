@@ -140,6 +140,8 @@ def write_jobid_file(options, jobid, workdir):
         else:
             print "  Your output will be attached to the email."
         print "-----------------------------------"
+        print "  To remove the remote working directory of your job, use:"
+        print "     python job_clean.py %s" % (file)
 
     return file
 
