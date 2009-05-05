@@ -51,7 +51,8 @@ default_options = {
     'input'    : "",
     'output'   : "",
     'rsync'    : False,
-    'verbose'  : True
+    'verbose'  : True,
+    'jobid'    : ""
     }
 
 ### Main Entry Point
@@ -106,7 +107,13 @@ def print_job_summary(options, jobid, workdir):
 
 def write_jobid_file(options, jobid, workdir):
     import pickle, sys, os
-    file = "%s_%s.out" % (jobid, os.getpid())
+
+    if (len(options["jobid"])>0):
+        file = options["jobid"]
+    elif (len(options["jobname"])>0):
+        file = "%s_%s_%s.out" % (options["jobname"], jobid, os.getpid())
+    else:
+        file = "%s_%s.out" % (jobid, os.getpid())
 
     try:
         f = open(file, "wb")
@@ -464,6 +471,14 @@ def add_pbs_options(parser, config):
                  help="The maximum time required to run the job " +
                  "(default: %default)")
 
+    ### Job ID
+    g.add_option("-j", "--jobid", action="callback",
+                 callback=store_seen, type="string",
+                 dest="jobid", metavar="FILE",
+                 default=default_options['jobid'],
+                 help="Write job identifier to specified file " +
+                 "(default: automatically generated)")
+
     ### Add options ########################
     
     parser.add_option_group(g)
@@ -819,6 +834,11 @@ def transfer_workfile(workfile, workdir, config, options):
                                (options["user"], options["host"], workdir),
                                shell=True)
 
+def strip_jobid(full_jobid):
+    # Full Job ID looks like 90210.opteron-cluster.nic.ualberta.ca
+    # We only want the number in the front
+    return full_jobid.split(".")[0]
+
 def queue_pbs_script(workfile, workdir, config, options):
     import subprocess
     PIPE = subprocess.PIPE
@@ -838,9 +858,8 @@ def queue_pbs_script(workfile, workdir, config, options):
     stdout, stderr = p.communicate()
     exitcode = p.wait()
     if exitcode == 0:
-        # Output looks like 90210.opteron-cluster.nic.ualberta.ca
-        # We only want the number in the front
-        return stdout.strip().split(".")[0]
+        # Return full-qualified job ID
+        return stdout.strip()
     else:
         return None
 
@@ -872,7 +891,7 @@ def job_delete(options, jobid):
     import subprocess
     exitcode = subprocess.call("ssh %s@%s " %
                                (options["user"], options["host"]) +
-                               "'qdel %s'" % jobid,
+                               "'qdel %s'" % (strip_jobid(jobid)),
                                shell=True)
     return exitcode
 
@@ -882,11 +901,12 @@ def job_status(options, jobid=None, full=False):
     if (full):
         stat += " -f"
     if (jobid):
-        stat += " %s" % (jobid)
+        stat += " %s" % (strip_jobid(jobid))
 
-    exitcode = subprocess.call("ssh %s@%s " %
-                               (options["user"], options["host"]) +
-                               "'%s'" % (stat),
+    command = "ssh %s@%s " % (options["user"], options["host"]) + \
+        "'%s'" % (stat)
+
+    exitcode = subprocess.call(command,
                                shell=True)
     return exitcode
 
