@@ -43,6 +43,7 @@ def main():
             "when the job was submitted"
 
         parser = optparse.OptionParser(usage=usage)
+        add_fetch_options(parser, config)
         PBSUtil.add_misc_options(parser, config)
 
         (options_obj, args) = parser.parse_args()
@@ -64,23 +65,17 @@ def main():
 
     PBSUtil.set_up_ssh(config, options)
 
-    PBSUtil.job_fetch(options, workdir)
+    PBSUtil.job_fetch(options, workdir, options['clean'])
 
-def add_status_options(parser, config):
+def add_fetch_options(parser, config):
     import os, optparse
 
-    g = optparse.OptionGroup(parser, "Job status options")
+    g = optparse.OptionGroup(parser, "Job Fetch options")
 
     ### All
-    g.add_option("-a", "--all", action="store_true",
-                 dest="all", default=False,
-                 help="Print status of all jobs in queue")
-
-
-    ### Full
-    g.add_option("-f", "--full", action="store_true",
-                 dest="full", default=False,
-                 help="Print full output about job(s)")
+    g.add_option("-c", "--clean", action="store_true",
+                 dest="clean", default=False,
+                 help="Remove remote working directory after fetching output")
 
     ### Add options ########################
     
