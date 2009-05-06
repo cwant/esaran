@@ -118,7 +118,7 @@ def write_jobid_file(options, jobid, workdir):
     try:
         f = open(file, "wb")
     except:
-        sys.stderr.write("Unable to open file for saving!\n")
+        sys.stderr.write("Unable to open file '%s' for saving!\n" % (file))
         sys.exit(1)
 
     pickle.dump(options, f)
@@ -542,7 +542,56 @@ def ssh_need_key(options):
 
     return 0
 
+def ssh_run_command(options, command):
+    import platform, subprocess
+
+    user = options['user']
+    host = options['host']
+
+    if (platform.system() == "Windows"):
+        ssh_command = "plink %s@%s %s" % (user, host, command)
+    else:
+        ssh_command = "ssh %s@%s '%s'" % (user, host, command)
+
+    p = subprocess.Popen(ssh_command, shell=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    exitcode = p.wait()
+
+    return (exitcode, stdout, stderr)
+
 def set_up_ssh(config, options):
+    import platform
+
+    if (platform.system() == "Windows"):
+        set_up_ssh_windows(config, options)
+    else:
+        set_up_ssh_unix(config, options)
+
+def set_up_ssh_windows(config, options):
+    import sys, os, pickle, subprocess
+
+    # Check if there is an ssh-agent running -- if not, re-run self in
+    # an agent.
+    try:
+        if (options["key"]):
+            key = options["key"]
+        else:
+            key = ""
+    except:
+        key = ""
+
+    if (key):
+        pipe = subprocess.Popen("pageant %s" % (key),
+                                stdin=subprocess.PIPE, shell=True);
+    else:
+        pipe = subprocess.Popen("pageant %s",
+                                stdin=subprocess.PIPE, shell=True);
+        pipe.stdin.flush()
+        sts = os.waitpid(pipe.pid, 0)
+
+def set_up_ssh_unix(config, options):
     import sys, os, pickle, subprocess
 
     # Check if there is an ssh-agent running -- if not, re-run self in
@@ -557,7 +606,8 @@ def set_up_ssh(config, options):
 
     ssh_auth = os.getenv("SSH_AUTH_SOCK")
     if (not ssh_auth):
-        pipe = subprocess.Popen("SSH_AGENT_RESPAWN=TRUE ssh-agent python %s"
+        os.putenv("SSH_AGENT_RESPAWN", "TRUE")
+        pipe = subprocess.Popen("ssh-agent python %s"
                                 % sys.argv[0],
                                 stdin=subprocess.PIPE, shell=True);
         pickle.dump(options, pipe.stdin)
@@ -651,7 +701,7 @@ def get_mem_spec(config, options):
 
 ### Create PBS Script
 def make_pbs_script(executable, workdir, config, options):
-    pbs = open("pbs_script.pbs", "w")
+    import string
 
     # create dictionary of strings for heredoc substitutions
     subs = dict()
@@ -693,7 +743,7 @@ Alternatively, you may obtain your output by using:
     subs['cpu_spec'] = get_cpu_spec(config, options)
 
     ### PBS SCRIPT START
-    pbs.write("""\
+    script = """\
 #!/bin/bash -l
 #PBS -S /bin/bash
 #PBS -N %(jobname)s
@@ -785,17 +835,23 @@ EOF_MAIL
 ) | %(mail_command)s
 
 fi
-""" % subs )
-    pbs.close()
+""" % (subs)
     ### PBS SCRIPT END
+
+    # Convert from DOS
+    script = string.replace(script, "\r\n", "\n")
+
+    pbs = open("pbs_script.pbs", "wb")
+    pbs.write(script)
+    pbs.close()
 
 def create_workdir(workdir, config, options):
     import subprocess
-    exitcode = subprocess.call("ssh %s@%s " %
-                               (options["user"], options["host"]) +
-                               "'mkdir -p %s; chmod o+r %s'" %
-                               (workdir, workdir),
-                               shell=True)
+    command = "mkdir -p %s; chmod o+r %s" % (workdir, workdir)
+
+    (exitcode, o, e) = ssh_run_command(options, command)
+
+    return exitcode
 
 def transfer_files(workfile, workdir, config, options):
     if options["rsync"]:
@@ -830,11 +886,18 @@ def tar_up_work(workfile, config, options):
                                shell=True)
 
 def transfer_workfile(workfile, workdir, config, options):
-    import subprocess
-    exitcode = subprocess.call("scp %s " % (workfile) +
+    import subprocess, platform
+
+    if (platform.system() == "Windows"):
+        scp = "pscp"
+    else:
+        scp = "scp"
+
+    exitcode = subprocess.call("%s %s " % (scp, workfile) +
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
+    return exitcode
 
 def strip_jobid(full_jobid):
     # Full Job ID looks like 90210.opteron-cluster.nic.ualberta.ca
@@ -849,19 +912,18 @@ def queue_pbs_script(workfile, workdir, config, options):
         tar =""
     else:
         tar = config["hosts"][options["host"]]["tar"] + \
-            " -xzvf %s; " % (workfile)
+            " -xzf %s; " % (workfile)
 
-    command = \
-        "ssh %s@%s " % (options["user"], options["host"]) + \
-        "'cd %s; "  % (workdir) + \
-        tar + "qsub pbs_script.pbs'"
-  
-    p = subprocess.Popen(command, shell=True, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate()
-    exitcode = p.wait()
+    user = options["user"]
+    host =  options["host"]
+    command = "cd %s; "  % (workdir) + \
+        tar + "qsub pbs_script.pbs"
+    
+    (exitcode, o, e) = ssh_run_command(options, command)
+
     if exitcode == 0:
         # Return full-qualified job ID
-        return stdout.strip()
+        return o.strip()
     else:
         return None
 
@@ -891,25 +953,22 @@ def job_submit(options_in):
 
 def job_delete(options, jobid):
     import subprocess
-    exitcode = subprocess.call("ssh %s@%s " %
-                               (options["user"], options["host"]) +
-                               "'qdel %s'" % (strip_jobid(jobid)),
-                               shell=True)
+
+    command = "qdel %s" % (strip_jobid(jobid))
+    (exitcode, o, e) = ssh_run_command(options, command)
+
     return exitcode
 
 def job_status(options, jobid=None, full=False):
     import subprocess
-    stat = "qstat"
+    command = "qstat"
     if (full):
-        stat += " -f"
+        command += " -f"
     if (jobid):
-        stat += " %s" % (strip_jobid(jobid))
+        command += " %s" % (strip_jobid(jobid))
 
-    command = "ssh %s@%s " % (options["user"], options["host"]) + \
-        "'%s'" % (stat)
+    (exitcode, o, e) = ssh_run_command(options, command)
 
-    exitcode = subprocess.call(command,
-                               shell=True)
     return exitcode
 
 def job_fetch(options, workdir, clean=False):
@@ -943,13 +1002,12 @@ def job_fetch(options, workdir, clean=False):
 def job_clean(options, workdir):
     import subprocess
 
-    command = "ssh %s@%s " % (options["user"], options["host"]) + \
-        "'rm -rf %s'" % (workdir)
+    command = "rm -rf %s" % (workdir)
 
     print "Cleaning remote work directory: %s@%s:%s" % \
         (options["user"], options["host"], workdir)
 
-    exitcode = subprocess.call(command, shell=True)
+    (exitcode, o, e) = ssh_run_command(options, command)
 
     return exitcode
     
