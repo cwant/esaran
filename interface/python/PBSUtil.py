@@ -512,46 +512,48 @@ def add_misc_options(parser, config):
 
 def ssh_keys_loaded():
     import subprocess
-    exitcode = subprocess.call("ssh-add -L > /dev/null", shell=True)
+
+    p = subprocess.Popen("ssh-add -L", shell=True,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    exitcode = p.wait()
 
     if (exitcode):
-        return 0
+        return False
 
-    return 1
+    return True
 
 def test_ssh_key(options):
     import subprocess
     exitcode = subprocess.call("ssh -o NumberOfPasswordPrompts=0 " + \
-                                   "%s -l %s 'date > /dev/null'" % \
+                                   "%s -l %s \"date > /dev/null\"" % \
                                    (options["host"],
                                     options["user"]),
                                shell=True)
     if (exitcode):
-        return 0
+        return False
 
-    return 1
+    return True
 
 def ssh_need_key(options):
     if ( not ssh_keys_loaded() ):
         # Case where there are no keys
-        return 1
+        return True
 
     # Case where there are keys
     if ( not test_ssh_key(options)):
-        return 1
+        return True
 
-    return 0
+    return False
 
 def ssh_run_command(options, command):
-    import platform, subprocess
+    import subprocess
 
     user = options['user']
     host = options['host']
 
-    if (platform.system() == "Windows"):
-        ssh_command = "plink %s@%s %s" % (user, host, command)
-    else:
-        ssh_command = "ssh %s@%s '%s'" % (user, host, command)
+    ssh_command = "ssh %s@%s \"%s\"" % (user, host, command)
 
     p = subprocess.Popen(ssh_command, shell=True,
                          stdout=subprocess.PIPE,
@@ -562,36 +564,6 @@ def ssh_run_command(options, command):
     return (exitcode, stdout, stderr)
 
 def set_up_ssh(config, options):
-    import platform
-
-    if (platform.system() == "Windows"):
-        set_up_ssh_windows(config, options)
-    else:
-        set_up_ssh_unix(config, options)
-
-def set_up_ssh_windows(config, options):
-    import sys, os, pickle, subprocess
-
-    # Check if there is an ssh-agent running -- if not, re-run self in
-    # an agent.
-    try:
-        if (options["key"]):
-            key = options["key"]
-        else:
-            key = ""
-    except:
-        key = ""
-
-    if (key):
-        pipe = subprocess.Popen("pageant %s" % (key),
-                                stdin=subprocess.PIPE, shell=True);
-    else:
-        pipe = subprocess.Popen("pageant %s",
-                                stdin=subprocess.PIPE, shell=True);
-        pipe.stdin.flush()
-        sts = os.waitpid(pipe.pid, 0)
-
-def set_up_ssh_unix(config, options):
     import sys, os, pickle, subprocess
 
     # Check if there is an ssh-agent running -- if not, re-run self in
@@ -619,7 +591,13 @@ def set_up_ssh_unix(config, options):
     if (ssh_need_key(options)):
         # Key needed, so try to add key, note that the variable
         # $key will be empty unless the user used -k
-        subprocess.call("ssh-add %s > /dev/null" % (key), shell=True);
+
+        command = "ssh-add %s" %(key)
+        p = subprocess.Popen(command, shell=True,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        exitcode = p.wait()
 
         # Try again to see if the key worked
         if ( not test_ssh_key(options) ):
@@ -862,7 +840,7 @@ def transfer_files(workfile, workdir, config, options):
 
 
 def rsync_work(workdir, config, options):
-    import subprocess
+    import subprocess, sys
     if (len(options["input"])>0):
         files = "pbs_script.pbs " + options["input"]
     else:
@@ -872,6 +850,9 @@ def rsync_work(workdir, config, options):
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
+    if (exitcode):
+        sys.stderr.write("Could not rsync files!\n")
+        sys.exit(1)
 
 def tar_up_work(workfile, config, options):
     import subprocess
@@ -886,14 +867,9 @@ def tar_up_work(workfile, config, options):
                                shell=True)
 
 def transfer_workfile(workfile, workdir, config, options):
-    import subprocess, platform
+    import subprocess
 
-    if (platform.system() == "Windows"):
-        scp = "pscp"
-    else:
-        scp = "scp"
-
-    exitcode = subprocess.call("%s %s " % (scp, workfile) +
+    exitcode = subprocess.call("scp %s " % (workfile) +
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
