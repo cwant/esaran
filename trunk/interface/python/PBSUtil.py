@@ -52,7 +52,8 @@ default_options = {
     'output'   : "",
     'rsync'    : False,
     'verbose'  : True,
-    'jobid'    : ""
+    'jobid'    : "",
+    'debug'    : False
     }
 
 ### Main Entry Point
@@ -325,7 +326,7 @@ def add_account_options(parser, config):
                          "the HPC resourse")
 
     ### Work directory
-    g.add_option("-d", "--dir", action="callback",
+    g.add_option("-D", "--dir", action="callback",
                  callback=store_seen, type="string",
                  dest="dir", metavar="DIRECTORY",
                  default="",
@@ -503,6 +504,13 @@ def add_misc_options(parser, config):
                  dest="verbose",
                  help="Silence program output")
 
+    ### Debug
+    g.add_option("-d", "--debug", action="store_true",
+                 dest="debug", default=default_options['debug'],
+                 help="Keep intermediate files around for " +
+                 "diagnostic purposes")
+
+
     ### Add options ########################
     
     parser.add_option_group(g)
@@ -623,11 +631,20 @@ def submit_job(config, options):
                                  os.getpid())
     workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
+    if options["verbose"]:
+        print "Making submission script ..."
     make_pbs_script(executable, workdir, config, options)
+
     create_workdir(workdir, config, options)
+
+    if options["verbose"]:
+        print "Transfering work files..."
     transfer_files(workfile, workdir, config, options)
 
+    if options["verbose"]:
+        print "Queueing job ..."
     jobid = queue_pbs_script(workfile, workdir, config, options)
+
     return (jobid, workdir)
 
 def get_cpu_spec(config, options):
@@ -832,12 +849,23 @@ def create_workdir(workdir, config, options):
     return exitcode
 
 def transfer_files(workfile, workdir, config, options):
+    import subprocess
+
+    if options["verbose"]:
+        print "Transfering work ..."
+
     if options["rsync"]:
         rsync_work(workdir, config, options)
     else:
         tar_up_work(workfile, config, options)
         transfer_workfile(workfile, workdir, config, options)
-
+        # Remove workfile, pbs script
+        if not options['debug']:
+            exitcode = subprocess.call("rm -f %s" % (workfile),
+                                       shell=True)
+    if not options['debug']:
+        exitcode = subprocess.call("rm -f pbs_script.pbs",
+                                   shell=True)
 
 def rsync_work(workdir, config, options):
     import subprocess, sys
@@ -863,13 +891,13 @@ def tar_up_work(workfile, config, options):
     else:
         files = "*"
 
-    exitcode = subprocess.call("tar -czvf %s %s" % (workfile, files),
+    exitcode = subprocess.call("tar -czf %s %s" % (workfile, files),
                                shell=True)
 
 def transfer_workfile(workfile, workdir, config, options):
     import subprocess
 
-    exitcode = subprocess.call("scp %s " % (workfile) +
+    exitcode = subprocess.call("scp -q %s " % (workfile) +
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
@@ -888,12 +916,12 @@ def queue_pbs_script(workfile, workdir, config, options):
         tar =""
     else:
         tar = config["hosts"][options["host"]]["tar"] + \
-            " -xzf %s; " % (workfile)
+            " -xzf %s; rm -f %s; " % (workfile, workfile)
 
     user = options["user"]
     host =  options["host"]
     command = "cd %s; "  % (workdir) + \
-        tar + "qsub pbs_script.pbs"
+        tar + "qsub pbs_script.pbs; rm -f pbs_script.pbs"
     
     (exitcode, o, e) = ssh_run_command(options, command)
 
