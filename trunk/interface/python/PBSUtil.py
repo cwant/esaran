@@ -53,7 +53,8 @@ default_options = {
     'rsync'    : False,
     'verbose'  : True,
     'jobid'    : "",
-    'debug'    : False
+    'debug'    : False,
+    'test'     : False
     }
 
 ### Main Entry Point
@@ -89,15 +90,19 @@ def do_wrapper(get_wrapper_cmdline="",
         save_options(options, options["save_options"])
 
     # Set up ssh keys, respawning if needed
-    set_up_ssh(config, options)
+    if not options['test']:
+        set_up_ssh(config, options)
     (jobid, workdir) = submit_job(config, options)
 
-    if (options['verbose']):
-        print_job_summary(options, jobid, workdir)
+    if not options['test']:
+        if (options['verbose']):
+            print_job_summary(options, jobid, workdir)
 
-    jobid_out = write_jobid_file(options, jobid, workdir)
+        jobid_out = write_jobid_file(options, jobid, workdir)
 
-    return (jobid, workdir)
+        return (jobid, workdir)
+
+    return (None, None)
 
 def print_job_summary(options, jobid, workdir):
     print "Job submission summary:"
@@ -482,6 +487,12 @@ def add_pbs_options(parser, config):
                  help="Write job identifier to specified file " +
                  "(default: automatically generated)")
 
+    ### No submit
+    g.add_option("-t", "--test", action="store_true",
+                 dest="test", default=default_options['test'],
+                 help="Only generate a submission script, but do not " +
+                 "submit it")
+
     ### Add options ########################
     
     parser.add_option_group(g)
@@ -635,17 +646,20 @@ def submit_job(config, options):
         print "Making submission script ..."
     make_pbs_script(executable, workdir, config, options)
 
-    create_workdir(workdir, config, options)
+    if not options["test"]:
+        create_workdir(workdir, config, options)
 
-    if options["verbose"]:
-        print "Transfering work files..."
-    transfer_files(workfile, workdir, config, options)
+        if options["verbose"]:
+            print "Transfering work files..."
+        transfer_files(workfile, workdir, config, options)
 
-    if options["verbose"]:
-        print "Queueing job ..."
-    jobid = queue_pbs_script(workfile, workdir, config, options)
+        if options["verbose"]:
+            print "Queueing job ..."
+        jobid = queue_pbs_script(workfile, workdir, config, options)
 
-    return (jobid, workdir)
+        return (jobid, workdir)
+
+    return (None, None)
 
 def get_cpu_spec(config, options):
     host = config['hosts'][options['host']]
@@ -1259,6 +1273,12 @@ def pbs_gui_options(subpanel, config, options):
     fields.append(add_checkbox_control(subpanel,
                                        "rsync",
                                        "Rsync:"))
+    fields.append(add_checkbox_control(subpanel,
+                                       "debug",
+                                       "Debug:"))
+    fields.append(add_checkbox_control(subpanel,
+                                       "test",
+                                       "Test:"))
 
     return (title, fields)
 
