@@ -888,7 +888,7 @@ def rsync_work(workdir, config, options):
     else:
         files = "."
 
-    exitcode = subprocess.call("rsync %s " % (files) +
+    exitcode = subprocess.call("rsync -az %s " % (files) +
                                "%s@%s:%s" %
                                (options["user"], options["host"], workdir),
                                shell=True)
