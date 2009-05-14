@@ -719,17 +719,6 @@ def make_pbs_script(executable, workdir, config, options):
     subs.update(config['hosts'][options["host"]])
     subs['executable'] = executable
     subs['workdir']    = workdir 
-    if options["rsync"]:
-        rsync_message = """\
-
-Alternatively, you may obtain your output by using:
-    rsync -az %(user)s@%(host)s:%(workdir)s/ .
-
-""" % (subs)
-    else:
-        rsync_message = ""
-    subs["rsync_message"] = rsync_message
-
     if (len(options["output"])>0):
         subs["outfiles"] = options["output"]
     else:
@@ -751,8 +740,8 @@ Alternatively, you may obtain your output by using:
     subs['mem_spec'] = get_mem_spec(config, options)
     subs['cpu_spec'] = get_cpu_spec(config, options)
 
-    ### PBS SCRIPT START
-    script = """\
+    ################# PBS SCRIPT START ###################
+    run_job = """\
 #!/bin/bash -l
 #PBS -S /bin/bash
 #PBS -N %(jobname)s
@@ -778,7 +767,25 @@ else
   JOBNAME="the job %(jobname)s"
   SUBJECT="Results from job %(jobname)s"
 fi
+""" % (subs)
+  
+    if options["rsync"]:
+        ############# RSYNC TRANSFER ############
+        file_transfer = """\
+(cat <<EOF_MAIL
+To: %(email)s
+Subject: ${SUBJECT}
+MIME-Version: 1.0
+Content-Type: text/plain
 
+You may obtain your output by using:
+    rsync -az %(user)s@%(host)s:%(workdir)s/ .
+EOF_MAIL
+) | %(mail_command)s
+""" % (subs)
+    else:
+        ############# REGULAR TRANSFER ############
+        file_transfer = """\
 zip -r ${OUTPUT} %(outfiles)s > /dev/null
 chmod o+r ${OUTPUT}
 ZIPSIZE=`wc -c ${OUTPUT} | cut -d " " -f 1`
@@ -796,7 +803,7 @@ Content-Type: multipart/mixed; boundary="-q1w2e3r4t5"
 Content-Type: text/plain
 
 Here is the output from ${JOBNAME}.
-%(rsync_message)s
+
 ---q1w2e3r4t5
 Content-Type: application; name=${OUTPUT}
 Content-Transfer-Encoding: base64
@@ -838,14 +845,12 @@ Content-Type: text/plain
 
    %(webserver_site)s
 
-%(rsync_message)s
-
 EOF_MAIL
 ) | %(mail_command)s
 
 fi
 """ % (subs)
-    ### PBS SCRIPT END
+    script = run_job + file_transfer
 
     # Convert from DOS
     script = string.replace(script, "\r\n", "\n")
