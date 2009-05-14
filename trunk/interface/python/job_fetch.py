@@ -30,7 +30,7 @@
 #
 
 def main():
-    import sys, os, optparse, PBSUtil
+    import sys, os, optparse, subprocess, PBSUtil
 
     config = PBSUtil.get_config()
 
@@ -57,6 +57,7 @@ def main():
             sys.stderr.write("Need a file on the command line!\n")
             sys.exit(1)
 
+        print args[0]
         (options_id, jobid, workdir) = PBSUtil.read_jobid_file(args[0])
         options = PBSUtil.obj_to_dict(options_obj)
         PBSUtil.merge_options(options, None, options_id)
@@ -65,7 +66,14 @@ def main():
 
     PBSUtil.set_up_ssh(config, options)
 
-    PBSUtil.job_fetch(options, workdir, options['clean'])
+    print args[0]
+    if options['debug']:
+        PBSUtil.job_fetch(options, workdir, False)
+    else:
+        PBSUtil.job_fetch(options, workdir, True)
+        if options['clean']:
+            exitcode = subprocess.call("rm -f %s" % (args[0]),
+                                       shell=True)
 
 def add_fetch_options(parser, config):
     import os, optparse
@@ -75,7 +83,7 @@ def add_fetch_options(parser, config):
     ### All
     g.add_option("-c", "--clean", action="store_true",
                  dest="clean", default=False,
-                 help="Remove remote working directory after fetching output")
+                 help="Remove job id file after fetching")
 
     ### Add options ########################
     
