@@ -86,7 +86,7 @@
 <!-- LATTICE -->
 
   <host>
-    <name>glacier.westgrid.ca</name>
+    <name>lattice.westgrid.ca</name>
 	<tar>/usr/local/gnu/tar</tar>
 	<pbs_options>
 	  <cpu_spec>#PBS -l nodes=%(nodes)d:ppn=%(ppn)d</cpu_spec>
