@@ -30,13 +30,13 @@
 #
 
 def main():
-    import sys, os, optparse, PBSUtil
+    import sys, os, optparse, eSaran
 
-    config = PBSUtil.get_config()
+    config = eSaran.get_config()
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
-        options = PBSUtil.load_program_args()
+        options = eSaran.load_program_args()
     else:
         usage = "%prog [options] JOBID.out\n\n" + \
             "JOBID.out is the job identifier file created " + \
@@ -44,10 +44,10 @@ def main():
 
         parser = optparse.OptionParser(usage=usage)
         add_status_options(parser, config)
-        PBSUtil.add_misc_options(parser, config)
+        eSaran.add_misc_options(parser, config)
 
         (options_obj, args) = parser.parse_args()
-        options = PBSUtil.obj_to_dict(options_obj)
+        options = eSaran.obj_to_dict(options_obj)
 
         (options_obj, args) = parser.parse_args()
         if (len(args) > 1):
@@ -57,18 +57,18 @@ def main():
             sys.stderr.write("Need a file on the command line!\n")
             sys.exit(1)
 
-        (options_id, jobid, workdir) = PBSUtil.read_jobid_file(args[0])
-        options = PBSUtil.obj_to_dict(options_obj)
-        PBSUtil.merge_options(options, None, options_id)
+        (options_id, jobid, workdir) = eSaran.read_jobid_file(args[0])
+        options = eSaran.obj_to_dict(options_obj)
+        eSaran.merge_options(options, None, options_id)
 
-    PBSUtil.validate_host(config, options, options["host"])
+    eSaran.validate_host(config, options, options["host"])
 
-    PBSUtil.set_up_ssh(config, options)
+    eSaran.set_up_ssh(config, options)
 
     if options['all']:
-        PBSUtil.job_status(options, None, options['full'])
+        eSaran.job_status(options, None, options['full'])
     else:
-        PBSUtil.job_status(options, jobid, options['full'])
+        eSaran.job_status(options, jobid, options['full'])
 
 def add_status_options(parser, config):
     import os, optparse

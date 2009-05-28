@@ -30,8 +30,8 @@
 #
 
 def main():
-    import PBSUtil
+    import eSaran
 
-    PBSUtil.do_wrapper(configfileXML="wrap_gamess.xml")
+    eSaran.do_wrapper(configfileXML="wrap_gamess.xml")
 
 main()

@@ -39,9 +39,9 @@ gui_width        = 30
 help             = help="The name and arguments of the program to run"
 
 def main():
-    import PBSUtil
+    import eSaran
 
-    PBSUtil.do_wrapper(get_wrapper_cmdline=get_wrapper_cmdline,
+    eSaran.do_wrapper(get_wrapper_cmdline=get_wrapper_cmdline,
                        wrapper_title=wrapper_title,
                        add_wrapper_options=add_wrapper_options,
                        wrapper_gui_options=wrapper_gui_options)
@@ -50,23 +50,23 @@ def get_wrapper_cmdline(config, options):
     return options[program]
 
 def add_wrapper_options(parser, config):
-    import PBSUtil, optparse 
+    import eSaran, optparse 
 
     g = optparse.OptionGroup(parser, options_title)
 
     ### Executable
     g.add_option("-x", "--exe", action="callback",
-                 callback=PBSUtil.store_seen, type="string",
+                 callback=eSaran.store_seen, type="string",
                  dest=program, metavar=metavar,
                  help=help)
 
     parser.add_option_group(g)
 
 def wrapper_gui_options(subpanel, config, options):
-    import PBSUtil
+    import eSaran
     title = options_title
     fields = []
-    fields.append(PBSUtil.add_text_control(subpanel,
+    fields.append(eSaran.add_text_control(subpanel,
                                            program,
                                            gui_heading,
                                            width=gui_width))

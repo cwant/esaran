@@ -1692,7 +1692,7 @@ def read_merge_user_defaults(options, seen=None):
     import os
     from xml.dom import minidom
 
-    optsfile = os.path.expanduser('~/.PBSUtil.xml')
+    optsfile = os.path.expanduser('~/.eSaran/defaults.xml')
     if not os.path.isfile(optsfile):
         return
 
