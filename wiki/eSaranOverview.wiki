@@ -13,6 +13,5 @@ This wiki aims to document these two parts
 
 = Documentation =
 
-Add your content here.  Format your content with:
   * [eSaranWrappers Wrapper Scripts]
   * [eSaranAPI Programming API]
