@@ -1,0 +1,9 @@
+#summary Description of the eSaran API
+
+= The eSaran API =
+
+The eSaran API is designed so that programmers can build their own wrappers for programs for submitting to remote HPC resources. There are a few ways to use the API, each of which can be used exclusively or mixed to get the desired results:
+
+  # [eSaranCallbackWrappers Callback method];
+  # [eSaranXMLwrappers XML method];
+  # [eSaranUtilityFunctions Direct call method].
