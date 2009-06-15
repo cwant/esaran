@@ -1,0 +1,119 @@
+#summary A description of common options that are implemented by most eSaran wrappers.
+#sidebar eSaranSidebar
+
+<wiki:toc max_depth="3" />
+
+= eSaran Common Options =
+
+Options that specify the username and host are examples of options that are frequently needed in eSaran wrappers. We will discuss these options below from both a end user perspective, and from a programming perspective.
+
+In the discussion below, *`parser`* is a Parser object from the Optparse module, and *`config`* is a configuration dict as described on the [eSaranDataStructures] page. The dict called *`options`* is the output of the parser.
+
+----
+
+== Account Options ==
+
+These options are added to a wrapper by using the function
+{{{
+eSaran.add_account_options(parser, config)
+}}}
+
+This function will add a group of options to the parser with the heading *'Account options'*. The options added are:
+
+=== -H / --host ===
+
+The string included with this option will be stored in *`options["host"]`* after parsing.
+
+This will be the remote host where the compute job will be queued.
+
+=== -u / --user ===
+
+The string included with this option will be stored in *`options["user"]`* after parsing.
+
+This will be the username of the account on the remote host where the compute job will be queued. If this is not supplied, the wrapper will try to guess a value based on the username on the local machine.
+
+=== -D / --dir ===
+
+The string included with this option will be stored in *`options["dir"]`* after parsing.
+
+This is the directory on the remote machine under which a temporary working directory will be created. If not specified, the wrapper will try to guess a value based on the location of the scratch space of the remote machine.
+
+=== -e / --email ===
+
+The string included with this option will be stored in *`options["email"]`* after parsing.
+
+This is the email address where the user will receive information about the compute job. If the user does not supply a value for this, a value will be guessed based on the username.
+
+=== -k / --key ===
+
+The string included with this option will be stored in *`options["key"]`* after parsing.
+
+This option is used to specify a specific ssh key to be used to submit the job. By default, the wrapper will try to use the default key used by ssh/scp, if it exists.
+ 
+----
+
+== File Transfer Options ==
+
+These options are added to a wrapper by using the function
+{{{
+eSaran.add_file_transfer_options(parser, config)
+}}}
+
+This function will add a group of options to the parser with the heading *'File transfer options'*. The options added are:
+
+=== -i / --input ===
+
+The string included with this option will be stored in *`options["input"]`* after parsing.
+
+This option is used to specify a (space separated) list of files to transfer over to the remote computing resource. Wild cards may be used. If this option is not specified, the program will send over all files (and subdirectories) in the current directory.
+
+=== -o / --output ===
+
+The string included with this option will be stored in *`options["output"]`* after parsing.
+
+This option is used to specify a (space separated) list of files to transfer from the remote computing resource to the local machine, one the job has completed. Wild cards may be used. If this option is not specified, the program will send all files (and subdirectories) in the remote working directory.
+
+=== -r / --rsync ===
+
+This *`True`* / *`False`* value will be stored in *`options["output"]`* after parsing.
+
+Adding this flag will cause rsync to be used to transfer files, instead of scp.
+
+----
+
+== PBS Options ==
+
+These options are added to a wrapper by using the function
+{{{
+eSaran.add_pbs_options(parser, config)
+}}}
+
+This function will add a group of options to the parser with the heading *'Job Scheduling options'*. The options added are:
+
+=== -Q / --queue ===
+
+The string included with this option will be stored in *`options["queue"]`* after parsing.
+
+This option indicated the remote PBS queue to submit the compute job to. If this option is excluded, the default PBS queue will be used.
+
+=== -E / --notify ===
+
+The string included with this option will be stored in *`options["notify"]`* after parsing.
+
+This string is used to tell PBS when to email notifications about the user's compute job. The options, which may be used together are:
+
+  * *b*: before the job runs
+  * *a*: after the job runs
+  * *e*: on errors.
+
+The default for this is *"bea"*.
+
+=== -N / --jobname ===
+
+The string included with this option will be stored in *`options["jobname"]`* after parsing.
+
+
+
+----
+
+== Miscellaneous Options ==
