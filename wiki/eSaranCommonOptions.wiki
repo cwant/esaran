@@ -75,7 +75,7 @@ This option is used to specify a (space separated) list of files to transfer fro
 
 === -r / --rsync ===
 
-This *`True`* / *`False`* value will be stored in *`options["output"]`* after parsing.
+This flag will cause a *`True`* value to be stored in *`options["rsync"]`* after parsing (default is *`False`*).
 
 Adding this flag will cause rsync to be used to transfer files, instead of scp.
 
@@ -112,8 +112,81 @@ The default for this is *"bea"*.
 
 The string included with this option will be stored in *`options["jobname"]`* after parsing.
 
+This sets the PBS job name. Default is "job1".
 
+=== -M / --mem ===
+
+The string included with this option will be stored in *`options["mem"]`* after parsing.
+
+This sets the total memory required by the job. E.g., "512mb". Default is left up to the PBS installation. Note: this option may not be available on all systems.
+
+=== -m / --pvmem ===
+
+The string included with this option will be stored in *`options["pvmem"]`* after parsing.
+
+This sets the per-processor virtual memory for the job. E.g., "512mb". Default is left up to the PBS installation. Note: this option may not be available on all systems.
+
+=== -n / --nodes ===
+
+The string included with this option will be stored in *`options["nodes"]`* after parsing.
+
+This sets the number of nodes needed to run the job. Default is left up to the PBS installation. Note: this option may not be available on all systems.
+
+=== -P / --procs ===
+
+The string included with this option will be stored in *`options["procs"]`* after parsing.
+
+This sets the number of processors needed to run the job. Default is left up to the PBS installation. Note: this option may not be available on all systems.
+
+=== -p / --ppn ===
+
+The string included with this option will be stored in *`options["ppn"]`* after parsing.
+
+This sets the processors-per-node required for the job. Default is left up to the PBS installation. Note: this option may not be available on all systems.
+
+=== -w / --walltime ===
+
+The string included with this option will be stored in *`options["walltime"]`* after parsing.
+
+This sets the amount of walltime required for the job. Format is "HH:MM:SS". Default is "24:00:00".
+
+=== -j / --jobid ===
+
+The string included with this option will be stored in *`options["jobid"]`* after parsing.
+
+This sets the name of the job identifier file associated for the job. If not specified, the file name is automatically generated.
+
+=== -t / --test ===
+
+This flag will cause a *`True`* value to be stored in *`options["test"]`* after parsing (default is *`False`*).
+
+This flag will cause the wrapper to generate a submission script without actually transferring files and submitting the job.
 
 ----
 
 == Miscellaneous Options ==
+
+These options are added to a wrapper by using the function
+{{{
+eSaran.add_misc_options(parser, config)
+}}}
+
+This function will add a group of options to the parser with the heading *'Miscellaneous options'*. The options added are:
+
+=== -v / --verbose ===
+
+This flag will cause a *`True`* value to be stored in *`options["verbose"]`* after parsing. This flag is redundant, since the default value is *`True`*.
+
+This is the opposite of the *`--quiet'* flag below.
+
+=== -q / --quiet ===
+
+This flag will cause a *`False`* value to be stored in *`options["verbose"]`* after parsing.
+
+This flag suppresses most of the output of the wrapper.
+
+=== -d / --debug ===
+
+This flag will cause a *`True`* value to be stored in *`options["debug"]`* after parsing (default is *`False`*).
+
+This flag will keep intermediate files around after the job is run, which can be helpful for diagnosing problems.
