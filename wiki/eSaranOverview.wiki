@@ -1,4 +1,5 @@
 #summary Overview of eSaran
+#sidebar eSaranSidebar
 = eSaran =
 
 The eSaran project strives to make high performance computing (HPC) accessible to researchers who may not have a computational background.
