@@ -190,3 +190,32 @@ This flag suppresses most of the output of the wrapper.
 This flag will cause a *`True`* value to be stored in *`options["debug"]`* after parsing (default is *`False`*).
 
 This flag will keep intermediate files around after the job is run, which can be helpful for diagnosing problems.
+
+----
+
+== Execution Options ==
+
+These options are added to a wrapper by using the function
+{{{
+eSaran.add_execution_options(parser, config)
+}}}
+
+This function will add a group of options to the parser with the heading *'Execution options'*. The options added are:
+
+=== -g / --gui ===
+
+This flag will cause a *`True`* value to be stored in *`options["gui"]`* after parsing (default is *`False`*).
+
+Using this option will cause a wxPython GUI to appear with most of the options available to edit.
+
+=== -l / --load-options ===
+
+The string included with this option will be stored in *`options["load_options"]`* after parsing.
+
+This option is used to specify a file to read the current set of options from. The data read from the file is the *`options`* dict, read using the standard python Pickle module. The options read from file will not overwrite any other options that are specified using command line arguments.
+
+=== -s / --save-options ===
+
+The string included with this option will be stored in *`options["save_options"]`* after parsing.
+
+This option is used to specify a file to write the current set of options to. The data written to the file is the *`options`* dict , written using the standard python Pickle module.
