@@ -218,11 +218,11 @@ def get_options(config):
         parser = optparse.OptionParser()
         if (config["add_wrapper_options"]):
             config["add_wrapper_options"](parser, config)
-        add_account_options(parser, config)
-        add_file_transfer_options(parser, config)
-        add_pbs_options(parser, config)
-        add_misc_options(parser, config)
-        add_execution_options(parser, config)
+        add_account_options(parser)
+        add_file_transfer_options(parser)
+        add_pbs_options(parser)
+        add_misc_options(parser)
+        add_execution_options(parser)
 
         parser.seen = dict()
         (options_obj, args) = parser.parse_args()
@@ -302,7 +302,7 @@ def store_true_seen(option, opt_str, value, parser):
     setattr(parser.values, option.dest, True)
     parser.seen[option.dest] = True
 
-def add_account_options(parser, config):
+def add_account_options(parser):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Account options")
@@ -378,7 +378,7 @@ def make_account_defaults(config, options, seen):
                 options["email"] = email
 
 
-def add_file_transfer_options(parser, config):
+def add_file_transfer_options(parser):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "File transfer options")
@@ -411,7 +411,7 @@ def add_file_transfer_options(parser, config):
     
     parser.add_option_group(g)
 
-def add_pbs_options(parser, config):
+def add_pbs_options(parser):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Job Scheduling options")
@@ -499,7 +499,7 @@ def add_pbs_options(parser, config):
 
 
 
-def add_misc_options(parser, config):
+def add_misc_options(parser):
     import os, optparse
 
     g = optparse.OptionGroup(parser, "Miscellaneous options")
@@ -1034,7 +1034,7 @@ def job_clean(options, workdir):
 
     return exitcode
     
-def add_execution_options(parser, config):
+def add_execution_options(parser):
     import optparse
 
     g = optparse.OptionGroup(parser, "Execution options")
