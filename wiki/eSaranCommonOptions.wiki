@@ -1,5 +1,4 @@
 #summary A description of common options that are implemented by most eSaran wrappers.
-#sidebar eSaranSidebar
 
 <wiki:toc max_depth="3" />
 
@@ -7,7 +6,7 @@
 
 Options that specify the username and host are examples of options that are frequently needed in eSaran wrappers. We will discuss these options below from both a end user perspective, and from a programming perspective.
 
-In the discussion below, *`parser`* is a Parser object from the Optparse module, and *`config`* is a configuration dict as described on the [eSaranDataStructures] page. The dict called *`options`* is the output of the parser.
+In the discussion below, *`parser`* is a Parser object from the Optparse module. The Optparse parser outputs an object with options as attributes, and *`options`* is the dict that has been converted from this object (attributes become dictionary items).
 
 ----
 
@@ -15,7 +14,7 @@ In the discussion below, *`parser`* is a Parser object from the Optparse module,
 
 These options are added to a wrapper by using the function
 {{{
-eSaran.add_account_options(parser, config)
+eSaran.add_account_options(parser)
 }}}
 
 This function will add a group of options to the parser with the heading *'Account options'*. The options added are:
@@ -56,7 +55,7 @@ This option is used to specify a specific ssh key to be used to submit the job. 
 
 These options are added to a wrapper by using the function
 {{{
-eSaran.add_file_transfer_options(parser, config)
+eSaran.add_file_transfer_options(parser)
 }}}
 
 This function will add a group of options to the parser with the heading *'File transfer options'*. The options added are:
@@ -85,7 +84,7 @@ Adding this flag will cause rsync to be used to transfer files, instead of scp.
 
 These options are added to a wrapper by using the function
 {{{
-eSaran.add_pbs_options(parser, config)
+eSaran.add_pbs_options(parser)
 }}}
 
 This function will add a group of options to the parser with the heading *'Job Scheduling options'*. The options added are:
@@ -168,7 +167,7 @@ This flag will cause the wrapper to generate a submission script without actuall
 
 These options are added to a wrapper by using the function
 {{{
-eSaran.add_misc_options(parser, config)
+eSaran.add_misc_options(parser)
 }}}
 
 This function will add a group of options to the parser with the heading *'Miscellaneous options'*. The options added are:
@@ -197,7 +196,7 @@ This flag will keep intermediate files around after the job is run, which can be
 
 These options are added to a wrapper by using the function
 {{{
-eSaran.add_execution_options(parser, config)
+eSaran.add_execution_options(parser)
 }}}
 
 This function will add a group of options to the parser with the heading *'Execution options'*. The options added are:
