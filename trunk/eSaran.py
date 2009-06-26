@@ -634,9 +634,17 @@ For assistance, please contact research.support@ualberta.ca
 
 ### Job Submission
 def submit_job(config, options):
-    import os
+    import os, sys
 
-    executable = config["get_wrapper_cmdline"](config, options)
+    executable = ""
+    if config["get_wrapper_cmdline"]:
+        executable = config["get_wrapper_cmdline"](config, options)
+    elif options.has_key("exe"):
+        executable = options["exe"]
+
+    if (len(executable) == 0):
+        sys.stderr.write("No executable set to submit!\n")
+        sys.exit(1)
 
     workdir  = "%s/%s_%d.tmp" % (options["dir"], options["jobname"],
                                  os.getpid())
