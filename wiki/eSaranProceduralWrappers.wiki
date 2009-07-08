@@ -1,0 +1,177 @@
+#summary eSaran Procedural-based Wrapper API
+
+<wiki:toc max_depth="3" />
+
+= An Example =
+
+The following example creates a wrapper for a program called *`cure_cancer`*. The *`cure_cancer`* program takes two arguemts, *`-L`* and *`-T`*, and the wrapper passes these arguments to the program.
+
+{{{
+#!/usr/bin/env python
+
+def main():
+
+    import os, optparse, eSaran
+
+    # Load information about hosts, and set title
+    config = eSaran.get_config(wrapper_title = "")
+
+    if (os.getenv("SSH_AGENT_RESPAWN")):
+        # We have been respawned (in an ssh-agent), load
+        # pickled options from the parent that spawned us
+        options = eSaran.load_wrapper_args()
+    else:
+
+        # Get an option parser
+        parser = optparse.OptionParser()
+
+        # --- Add Custom Options --------------
+        add_custom_options(parser, config)
+
+        # Add standard options
+        eSaran.add_account_options(parser)
+        eSaran.add_file_transfer_options(parser)
+        eSaran.add_pbs_options(parser)
+        eSaran.add_misc_options(parser)
+        eSaran.add_execution_options(parser)
+        parser.seen = dict()
+
+        # Parse and convert options to a dict
+        (options_obj, args) = parser.parse_args()
+        options = eSaran.obj_to_dict(options_obj)
+
+        # Load options from user defaults file and generate
+        # account defaults if needed
+        seen    = parser.seen
+        eSaran.read_merge_user_defaults(options, seen)
+        eSaran.make_account_defaults(config, options, seen)
+
+        # If saved options have been loaded from a file on the
+        # commandline, merge them with the other commandline options
+        if (options["load_options"]):
+            eSaran.load_merge_options(options, options["load_options"], seen)
+
+        # If the gui has been requested, display it
+        if (options["gui"]):
+            eSaran.make_gui(config, options, add_custom_gui_options)
+
+        #--- Do option processing, validation ---
+        if (options["level"] > 8):
+            options["ncpus"] = 4
+
+        #--- Set the commandline to run ---------
+        options["exe"] = "cure_cancer -L %s -T %s" % (options["level"],
+                                                      options["time"])
+        
+    # Check ssh setup, respawn in an ssh-agent if required
+    eSaran.set_up_ssh(config, options)
+
+    # submit the job
+    eSaran.submit_job(config, options)
+
+def add_custom_options(parser, config):
+    import optparse, eSaran
+    
+    #-- Add my custom options -----------------------
+    g = optparse.OptionGroup(parser, "Options for cure_cancer")
+        
+    # Level
+    g.add_option("-L", "--level", action="callback",
+                 callback=eSaran.store_seen, type="string",
+                 dest="level", metavar="DOSAGE",
+                 help="The dosage required, in millilitres")
+
+    # Time
+    g.add_option("-T", "--time", action="callback",
+                 callback=eSaran.store_seen, type="string",
+                 dest="time", metavar="SECONDS",
+                 default="20s",
+                 help="The recovery period, in seconds (default: %default)")
+
+    parser.add_option_group(g)
+
+
+def add_custom_gui_options(subpanel, config, options):
+    import eSaran
+
+    #-- Add my custom GUI options -----------------------
+
+    title = "cure_cancer options"
+    fields = []
+
+    # Level
+    fields.append(eSaran.add_text_control(subpanel,
+                                          "level",
+                                          "Dosage level:",
+                                          width=30))
+
+    # Time
+    fields.append(eSaran.add_text_control(subpanel,
+                                          "time",
+                                          "Recovery time in seconds:",
+                                          width=30))
+
+    return (title, fields)
+
+main()
+}}}
+
+We will now go through some of the API calls used to create this wrapper.
+
+= eSaran API calls =
+
+== Getting the configuration ==
+
+=== *`eSaran.get_config( ... )`* ===
+
+* ---- TO DO ------- *
+
+== Adding command line options ==
+
+*eSaran* uses the standard python *Optparse* module to handle command line arguments, and many of the API functions use an *Optparse* parser object as an argument. *eSaran* has a number of API functions that take care of common command line arguments, and many of these are documented on the page eSaranCommonOptions.
+The typical process for dealing with command line options is to create an *Optparse* parser object, add options to it, then run the parser's *`parse()`* method. The *`parse()`* method will return an object that has the parsed options as attributes, and a list of positional arguments. It is often convenient to convert the option object into a python dictionary -- the *`eSaran.obj_to_dict()`* function can be used for this purpose.
+
+=== *`eSaran.add_account_options(parser)`* ===
+
+See eSaranCommonOptions#Account_Options.
+
+=== *`eSaran.add_file_transfer_options(parser)`* ===
+
+See eSaranCommonOptions#File_Transfer_Options.
+
+=== *`eSaran.add_pbs_options(parser)`* ===
+
+See eSaranCommonOptions#PBS_Options.
+
+=== *`eSaran.add_misc_options(parser)`* ===
+
+See eSaranCommonOptions#Miscellaneous_Options.
+
+=== *`eSaran.add_execution_options(parser)`* ===
+
+See eSaranCommonOptions#Execution_Options.
+
+=== *`eSaran.obj_to_dict(options_obj)`* ===
+
+Takes a python object as an argument (such as the one returned by the *Optparse* parser) and returns a Python dictionary, converting the object attribute names to dictionary keys (e.g., `*options_obj->host*` in the input object becomes *`options["host"]`* in the output dictionary).
+
+== Adding GUI options ==
+
+*eSaran* uses the wxPython library to provide optional GUI support (wxPython is not required to run eSaran if GUI support is not desired). wxPython is a rather complicated library, so eSaran tries to simplify the creation of GUI elements through callbacks and helper functions. Generally, GUI option parsing should occur after the command line option parsing is done (so that gui elements can be popilated with values retreived from the command line).
+
+=== *`eSaran.make_gui(config, options, add_custom_options)`* ===
+=== *`eSaran.add_text_control(panel, name, label, width)`* ===
+=== *`eSaran.add_combo_control(panel, name, label, choices, width)`* ===
+=== *`eSaran.add_spin_control(panel, name, label)`* ===
+=== *`eSaran.add_checkbox_control(panel, name, label)`* ===
+
+== Processing options ==
+
+== Constructing a commandline ==
+
+
+== Setting up SSH ==
+=== *`eSaran.set_up_ssh()`* ===
+== Submitting the job ==
+
+= Another Example =
