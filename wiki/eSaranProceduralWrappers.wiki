@@ -116,6 +116,8 @@ def add_custom_gui_options(subpanel, config, options):
 main()
 }}}
 
+----
+
 We will now go through some of the API calls used to create this wrapper.
 
 = eSaran API calls =
@@ -126,10 +128,14 @@ We will now go through some of the API calls used to create this wrapper.
 
 * ---- TO DO ------- *
 
+----
+
 == Adding command line options ==
 
 *eSaran* uses the standard python *Optparse* module to handle command line arguments, and many of the API functions use an *Optparse* parser object as an argument. *eSaran* has a number of API functions that take care of common command line arguments, and many of these are documented on the page eSaranCommonOptions.
 The typical process for dealing with command line options is to create an *Optparse* parser object, add options to it, then run the parser's *`parse()`* method. The *`parse()`* method will return an object that has the parsed options as attributes, and a list of positional arguments. It is often convenient to convert the option object into a python dictionary -- the *`eSaran.obj_to_dict()`* function can be used for this purpose.
+
+----
 
 === *`eSaran.add_account_options(parser)`* ===
 
@@ -151,9 +157,41 @@ See [eSaranCommonOptions#Miscellaneous_Options].
 
 See [eSaranCommonOptions#Execution_Options].
 
+----
+
 === *`eSaran.obj_to_dict(options_obj)`* ===
 
 Takes a python object as an argument (such as the one returned by the *Optparse* parser) and returns a Python dictionary, converting the object attribute names to dictionary keys (e.g., `*options_obj->host*` in the input object becomes *`options["host"]`* in the output dictionary).
+
+----
+
+In the example, *eSaran* creates a dictionary for the parse called *`parser.seen`* to keep track of which options are actually processed by the parser. In order to do this, whenever an option is added to the parser (or to a group within a parser) via an *`add_option()`* call, a callback is passed to the *`add_option()`* call that records that the option was "seen" by the parser. So for example, if the wrapper was called using the -T flag, then during command line parsing the dictionary entry *`parser.seen["time"]`* would be created and set to *`True`*. There are two callbacks that can be used to record whether a command line option was seen on the commandline.
+
+=== *`eSaran.store_seen(option, opt_str, value, parser)`* ===
+
+On parsing, this callback stores the value after the command line flag, then records the value as seen in *`parser.seen`*.
+
+=== *`eSaran.store_true_seen(option, opt_str, value, parser)`* ===
+
+On parsing, this callback sets the value of options->dest to *`True`*, then records the value as seen in *`parser.seen`*.
+
+----
+
+The dictionary *`parser.seen`* is important when merging stored options from file with the values of options recieved on the command line. It is felt that options that originate from the command line should take priority over those in user default files, or in other files saved to disk. There are a few functions that take care of these details.
+
+=== *`eSaran.read_merge_user_defaults(options, seen=None)`* ===
+
+The function takes the values of options stored in the user defaults file (usually stored in the XML file .eSaran.xml in the user's home directory) and merges then with the dictionary called *`options`*. The optional *`seen`* dictionary can flag members of the *`options`* dictionary as not to be overwritten.
+  
+=== *`eSaran.read_merge_options(options, file, seen=None)`* ===
+
+This function loads options from the file with file name *`file`* and merges them with the values in the dictionary *`options`*. The options in the file are ones that have been saved already by using the function *`eSaran.save_options()`* and contain data that has been output from the standard Python *Pickle* module (instead of being an XML file). The optional *`seen`* dictionary can flag members of the *`options`* dictionary as not to be overwritten. 
+
+=== *`eSaran.make_account_defaults(config, options, seen)`* ===
+
+This function will try to fill any missing holes in the account information supplied by the user. It will try to use values from the *hosts.xml* file, along with values from the user's environment to construct reasonable values for *`options["user"]`*, `*options["host"]`*, *`options["dir"]`*, and `*options["email"]`*.
+
+----
 
 == Adding GUI options ==
 
@@ -165,13 +203,23 @@ Takes a python object as an argument (such as the one returned by the *Optparse*
 === *`eSaran.add_spin_control(panel, name, label)`* ===
 === *`eSaran.add_checkbox_control(panel, name, label)`* ===
 
+----
+
 == Processing options ==
+
+----
 
 == Constructing a commandline ==
 
+----
 
 == Setting up SSH ==
 === *`eSaran.set_up_ssh()`* ===
+
+----
+
 == Submitting the job ==
+
+----
 
 = Another Example =
