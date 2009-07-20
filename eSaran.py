@@ -69,7 +69,7 @@ default_options = {
 #
 #     add_wrapper_validators(config)
 #
-def do_wrapper(get_wrapper_cmdline="",
+def do_wrapper(get_wrapper_cmdline=None,
                wrapper_title="",
                add_wrapper_options=None,
                wrapper_gui_options=None,
@@ -169,7 +169,7 @@ def read_jobid_file(file):
     return (options, jobid, workdir)
 
 ### Get Config
-def get_config(get_wrapper_cmdline="",
+def get_config(get_wrapper_cmdline=None,
                wrapper_title="",
                add_wrapper_options=None,
                wrapper_gui_options=None,
