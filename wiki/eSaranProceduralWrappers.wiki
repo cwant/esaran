@@ -2,6 +2,10 @@
 
 <wiki:toc max_depth="3" />
 
+= Motivation =
+
+This part of the *eSaran* API is lower level in nature, and is intended to handle the needs of users who's requirements go beyond the functionality provide by the callback or XML -based wrapper APIs.
+
 = An Example =
 
 The following example creates a wrapper for a program called *`cure_cancer`*. The *`cure_cancer`* program takes two arguemts, *`-L`* and *`-T`*, and the wrapper passes these arguments to the program.
@@ -14,7 +18,7 @@ def main():
     import os, optparse, eSaran
 
     # Load information about hosts, and set title
-    config = eSaran.get_config(wrapper_title = "")
+    config = eSaran.get_config(wrapper_title = "Cure Cancer")
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned (in an ssh-agent), load
@@ -126,7 +130,20 @@ We will now go through some of the API calls used to create this wrapper.
 
 === *`eSaran.get_config( ... )`* ===
 
-* ---- TO DO ------- *
+The function *'eSaran.get_config()`* provides a consistent (albeit complicated) interface for configuring wrappers. Internally, it is used in all three types of wrappers provided by *eSaran* (callback-based, XML-based, and procedural-based wrappers), but in very different ways.
+
+The main purpose of this call is to return the *`config`* dict. This dict contains different types of data depending on how *`eSaran.get_config()`* is called. At a bare minimum, *`config`* will contain information about the hosts that *eSaran* will connect to to submit compute jobs (such information is contained as another dictionary in *`config["hosts"]`*).
+
+The function has six optional keyword arguments, four of which are callback functions. Most of these arguments aren't of interest here, and are described in more detail in the documentation of the *`eSaran.do_wrapper()`* function arguments on the [eSaranCallbackWrappers] page.
+
+The arguments for *`eSaran.get_config()`*, with default values, are:
+
+  * *`get_wrapper_cmdline(config, options)=None`*. This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do_wrapper()]
+  * *`wrapper_title=""`*. This is the only argument we use in the example script above. It sets the title of the window when the user uses the wrapper with a GUI.
+  * *`add_wrapper_options(parser, config)=None`*  This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do_wrapper()]
+  * *`wrapper_gui_options(subpanel, config, options)=None`*  This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do_wrapper()]
+  * *`add_wrapper_validators(config)=None`* This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do_wrapper()]
+  * *`configfileXML=""`* This is a string pointing to an XML config file. This option is used with the XML-based wrappers.
 
 ----
 
@@ -134,8 +151,6 @@ We will now go through some of the API calls used to create this wrapper.
 
 *eSaran* uses the standard python *Optparse* module to handle command line arguments, and many of the API functions use an *Optparse* parser object as an argument. *eSaran* has a number of API functions that take care of common command line arguments, and many of these are documented on the page eSaranCommonOptions.
 The typical process for dealing with command line options is to create an *Optparse* parser object, add options to it, then run the parser's *`parse()`* method. The *`parse()`* method will return an object that has the parsed options as attributes, and a list of positional arguments. It is often convenient to convert the option object into a python dictionary -- the *`eSaran.obj_to_dict()`* function can be used for this purpose.
-
-----
 
 === *`eSaran.add_account_options(parser)`* ===
 
