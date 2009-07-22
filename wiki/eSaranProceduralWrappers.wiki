@@ -229,6 +229,20 @@ This function will try to fill any missing holes in the account information supp
 ----
 
 == Setting up SSH ==
+
+The typical *eSaran* job will need to use at least three ssh connections to successfully submit a job (one to create a remote working directory, one to transfer files, and the last one to actually submit the job for execution). It is recommended that users set up a ssh key with an ssh-agent to avoid having to type a password for each connection. *eSaran* tries to make this easier by detecting whether an ssh-agent is running, and if not it will respawn itself in an agent and attempt to load the user's default ssh keys (*eSaran* also has a *-k* option for specifying a particular ssh keys).
+
+When *eSaran* respawns itself it sets an environment variable called *SSH_AGENT_RESPAWN* and it sends the command line options to the child process through a special file descriptor.
+
+As in the example above, the typical workflow for dealing with ssh connections is as follows:
+
+  * Test if the script has been respawned by checking the *SSH_AGENT_RESPAWN* environment variable;
+  * If it was respawned, the child process will load the *`options`* dict from the parent (and will not process command line options);
+  * If the script has not been respawned, process the command line options as usual;
+  * Test if ssh works -- if it doesn't, respawn the script and send the *`options`* dict to the child process, then exit;
+  * If ssh does work, finally submit the job.
+
+
 === *`eSaran.set_up_ssh()`* ===
 
 ----
