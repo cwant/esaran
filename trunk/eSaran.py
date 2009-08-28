@@ -32,6 +32,8 @@
 Helper module for executing PBS jobs remotely.
 """
 
+import sys, os, pickle, optparse
+
 # Set a few defaults, and ensure that dict entries exist
 default_options = {
     'user'     : "",
@@ -105,14 +107,13 @@ def do_wrapper(get_wrapper_cmdline=None,
     return (None, None)
 
 def print_job_summary(options, jobid, workdir):
-    print "Job submission summary:"
-    print "  Username: ", options['user']
-    print "  Host name: ", options['host']
-    print "  Your PBS Job ID is ", jobid
-    print "  The remote working directory is ", workdir
+    print("Job submission summary:")
+    print("  Username: " + options['user'])
+    print("  Host name: " + options['host'])
+    print("  Your PBS Job ID is " + jobid)
+    print("  The remote working directory is " + workdir)
 
 def write_jobid_file(options, jobid, workdir):
-    import pickle, sys, os
 
     if (len(options["jobid"])>0):
         file = options["jobid"]
@@ -133,26 +134,25 @@ def write_jobid_file(options, jobid, workdir):
     f.close()
 
     if options['verbose']:
-        print "-----------------------------------"
-        print "Wrote job identifier file: %s" % (file)
-        print "  To check the status of your job, use:"
-        print "     python job_status.py %s" % (file)
-        print "  To delete your job, use:"
-        print "     python job_delete.py %s" % (file)
-        print "  You will recieve an email when your job is finished."
+        print("-----------------------------------")
+        print("Wrote job identifier file: %s" % (file))
+        print("  To check the status of your job, use:")
+        print("     python job_status.py %s" % (file))
+        print("  To delete your job, use:")
+        print("     python job_delete.py %s" % (file))
+        print("  You will recieve an email when your job is finished.")
         if (options['rsync']):
-            print "  To recieve your output, use:"
-            print "     python job_fetch.py %s" % (file)
+            print("  To recieve your output, use:")
+            print("     python job_fetch.py %s" % (file))
         else:
-            print "  Your output will be attached to the email."
-        print "-----------------------------------"
-        print "  To remove the remote working directory of your job, use:"
-        print "     python job_clean.py %s" % (file)
+            print("  Your output will be attached to the email.")
+        print("-----------------------------------")
+        print("  To remove the remote working directory of your job, use:")
+        print("     python job_clean.py %s" % (file))
 
     return file
 
 def read_jobid_file(file):
-    import pickle
 
     try:
         f = open(file, "rb")
@@ -175,8 +175,6 @@ def get_config(get_wrapper_cmdline=None,
                wrapper_gui_options=None,
                add_wrapper_validators=None,
                configfileXML=""):
-
-    import sys
 
     hosts = get_hosts_config_XML("hosts.xml")
 
@@ -209,7 +207,6 @@ def get_config(get_wrapper_cmdline=None,
     return config
 
 def get_options(config):
-    import os, optparse
 
     if (os.getenv("SSH_AGENT_RESPAWN")):
         # We have been respawned, load pickled options
@@ -226,7 +223,7 @@ def get_options(config):
 
         parser.seen = dict()
         (options_obj, args) = parser.parse_args()
-        options = obj_to_dict(options_obj)
+        options = options_obj.__dict__
         options["args"] = args
         seen    = parser.seen
 
@@ -242,24 +239,14 @@ def get_options(config):
 
     return options
     
-def obj_to_dict(options_obj):
-    options = dict()
-    for key, val in vars(options_obj).iteritems():
-        options[key] = val
-    return options
-
 def load_wrapper_args():
     # Load pickled command line options and positional args
-    import pickle, sys
-
     options = pickle.load(sys.stdin)
 
     return options
 
 def load_merge_options(options, file, seen=None):
     # Load pickled command line options and positional args
-    import pickle
-
     try:
         f = open(file, "rb")
     except:
@@ -276,15 +263,14 @@ def merge_options(options, seen, optsin):
     # 'seen'   : records whether the option value in 'options' was set by
     #            the user on the command line (i.e., don't overwrite)
     # 'optsin' : is the dict of options we want to merge into 'options'
-    for key, value in optsin.iteritems():
+    for key, value in optsin.items():
         if seen:
-            if not seen.has_key(key):
+            if not key in seen:
                 options[key] = value
         else:
             options[key] = value
 
 def save_options(options, file):
-    import pickle, sys
     try:
         f = open(file, "wb")
     except:
@@ -303,8 +289,6 @@ def store_true_seen(option, opt_str, value, parser):
     parser.seen[option.dest] = True
 
 def add_account_options(parser):
-    import os, optparse
-
     g = optparse.OptionGroup(parser, "Account options")
     user = os.getenv("USER")
 
@@ -360,7 +344,7 @@ def add_account_options(parser):
 def make_account_defaults(config, options, seen):
 
 
-    if options.has_key("dir") and options["dir"]:
+    if "dir" in options and options["dir"]:
         user = options["user"]
     
 
@@ -370,17 +354,14 @@ def make_account_defaults(config, options, seen):
             host = config["hosts"][options["host"]]
 
         if seen:
-            if not seen.has_key("dir") and not options["dir"]:
+            if not "dir" in seen and not options["dir"]:
                 dir = host["scratch_base"] + "/" + user
                 options["dir"] = dir
-            if not seen.has_key("email") and not options["email"]:
+            if not "email" in seen and not options["email"]:
                 email = user + "@" + host["email_base"]
                 options["email"] = email
 
-
 def add_file_transfer_options(parser):
-    import os, optparse
-
     g = optparse.OptionGroup(parser, "File transfer options")
 
     ### Input
@@ -412,8 +393,6 @@ def add_file_transfer_options(parser):
     parser.add_option_group(g)
 
 def add_pbs_options(parser):
-    import os, optparse
-
     g = optparse.OptionGroup(parser, "Job Scheduling options")
 
     ### Queue
@@ -500,8 +479,6 @@ def add_pbs_options(parser):
 
 
 def add_misc_options(parser):
-    import os, optparse
-
     g = optparse.OptionGroup(parser, "Miscellaneous options")
 
     ### Verbose
@@ -579,11 +556,15 @@ def ssh_run_command(options, command):
                          stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     exitcode = p.wait()
+    # Type seems to be "byte string" in Python 3.x
+    if (type(stdout) != type("")):
+        stdout = stdout.decode()
+        stderr = stderr.decode()
 
     return (exitcode, stdout, stderr)
 
 def set_up_ssh(config, options):
-    import sys, os, pickle, subprocess
+    import subprocess
 
     # Check if there is an ssh-agent running -- if not, re-run self in
     # an agent.
@@ -634,12 +615,11 @@ For assistance, please contact research.support@ualberta.ca
 
 ### Job Submission
 def submit_job(config, options):
-    import os, sys
 
     executable = ""
     if config["get_wrapper_cmdline"]:
         executable = config["get_wrapper_cmdline"](config, options)
-    elif options.has_key("exe"):
+    elif "exe" in options:
         executable = options["exe"]
 
     if (len(executable) == 0):
@@ -651,18 +631,18 @@ def submit_job(config, options):
     workfile = "%s_%d.tar.gz" % (options["jobname"], os.getpid())
 
     if options["verbose"]:
-        print "Making submission script ..."
+        print("Making submission script ...")
     make_pbs_script(executable, workdir, config, options)
 
     if not options["test"]:
         create_workdir(workdir, config, options)
 
         if options["verbose"]:
-            print "Transfering work files..."
+            print("Transfering work files...")
         transfer_files(workfile, workdir, config, options)
 
         if options["verbose"]:
-            print "Queueing job ..."
+            print("Queueing job ...")
         jobid = queue_pbs_script(workfile, workdir, config, options)
 
         return (jobid, workdir)
@@ -718,7 +698,6 @@ def get_mem_spec(config, options):
 
 ### Create PBS Script
 def make_pbs_script(executable, workdir, config, options):
-    import string
 
     # create dictionary of strings for heredoc substitutions
     subs = dict()
@@ -861,9 +840,9 @@ fi
     script = run_job + file_transfer
 
     # Convert from DOS
-    script = string.replace(script, "\r\n", "\n")
+    script = script.replace("\r\n", "\n")
 
-    pbs = open("pbs_script.pbs", "wb")
+    pbs = open("pbs_script.pbs", "w")
     pbs.write(script)
     pbs.close()
 
@@ -879,7 +858,7 @@ def transfer_files(workfile, workdir, config, options):
     import subprocess
 
     if options["verbose"]:
-        print "Transfering work ..."
+        print("Transfering work ...")
 
     if options["rsync"]:
         rsync_work(workdir, config, options)
@@ -972,7 +951,7 @@ def job_submit(options_in):
 
     merge_options(options, None, options_in)
 
-    for key, val in options.iteritems():
+    for key, val in options.items():
         seen[key] = True
 
     merge_options(options, seen, default_options)
@@ -1005,7 +984,7 @@ def job_status(options, jobid=None, full=False):
 def job_fetch(options, workdir, clean=False):
     import subprocess
     if not options["rsync"]:
-        print "job_fetch needs the rsync option!"
+        print("job_fetch needs the rsync option!")
         return 1
 
     inclexcl = ""
@@ -1026,7 +1005,7 @@ def job_fetch(options, workdir, clean=False):
         if (exitcode == 0):
             exitcode = job_clean(options, workdir)
         else:
-            print "Fetch was not successful, not cleaning!"
+            print("Fetch was not successful, not cleaning!")
 
     return exitcode
 
@@ -1035,8 +1014,8 @@ def job_clean(options, workdir):
 
     command = "rm -rf %s" % (workdir)
 
-    print "Cleaning remote work directory: %s@%s:%s" % \
-        (options["user"], options["host"], workdir)
+    print("Cleaning remote work directory: %s@%s:%s" % \
+        (options["user"], options["host"], workdir))
 
     (exitcode, o, e) = ssh_run_command(options, command)
 
@@ -1065,13 +1044,15 @@ def add_execution_options(parser):
     
     parser.add_option_group(g)
 
+
 ### GUI ############################################################
 
 def make_gui(config, options, wrapper_gui_options):
-    import sys
     try:
         import wx
     except:
+        sys.stderr.write("wxPython GUI does not appear to be supported " + \
+                         "on this system!\n")
         return
 
     app = wx.PySimpleApp()
@@ -1081,44 +1062,47 @@ def make_gui(config, options, wrapper_gui_options):
 
 try:
     import wx
-except:
-    sys.exit(1)
 
-class OptionsWindow(wx.Frame):
-    def __init__(self, parent, id, title,
+    class OptionsWindow(wx.Frame):
+        def __init__(self, parent, id, title,
                  config, options, wrapper_gui_options):
 
-        wx.Frame.__init__(self, parent, wx.ID_ANY, title)
-        self.Bind(wx.EVT_CLOSE, OnCancel)
+            wx.Frame.__init__(self, parent, wx.ID_ANY, title)
+            self.Bind(wx.EVT_CLOSE, OnCancel)
 
-        self.name    = title
-        self.config  = config
-        self.options = options
+            self.name    = title
+            self.config  = config
+            self.options = options
 
-        self.text_controls = []
-        self.combo_controls = []
-        self.spin_controls = []
-        self.checkbox_controls = []
+            self.text_controls = []
+            self.combo_controls = []
+            self.spin_controls = []
+            self.checkbox_controls = []
 
-        panel = wx.Panel(self, -1)
-        sizer = wx.BoxSizer(wx.VERTICAL)
+            panel = wx.Panel(self, -1)
+            sizer = wx.BoxSizer(wx.VERTICAL)
 
-        if (wrapper_gui_options):
-            add_options_panel(panel, sizer, config, options,
-                              wrapper_gui_options)
+            if (wrapper_gui_options):
+                add_options_panel(panel, sizer, config, options,
+                                  wrapper_gui_options)
 
-        add_options_panel(panel, sizer, config,
-                          options, pbs_gui_options)
+            add_options_panel(panel, sizer, config,
+                              options, pbs_gui_options)
 
-        add_buttons(panel, sizer)
+            add_buttons(panel, sizer)
 
-        panel.SetSizerAndFit(sizer)
-        panel.SetAutoLayout(True) 
-        panel.Fit()
-        self.Fit()
-        self.Show(1)
+            panel.SetSizerAndFit(sizer)
+            panel.SetAutoLayout(True) 
+            panel.Fit()
+            self.Fit()
+            self.Show(1)
+
+except:
+    pass
 
 def add_buttons(panel, sizer):
+    import wx
+
     subpanel = wx.Panel(panel, -1)
 
     buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1146,7 +1130,8 @@ dirname = ""
 filename = ""
 
 def OnSave(event):
-    import os
+    import wx
+
     global dirname, filename
 
     control = event.GetEventObject()
@@ -1165,7 +1150,8 @@ def OnSave(event):
     dlg.Destroy()
 
 def OnLoad(event):
-    import os
+    import wx
+
     global dirname, filename
 
     control = event.GetEventObject()
@@ -1185,17 +1171,19 @@ def OnLoad(event):
     dlg.Destroy()
 
 def update_controls(optwin):
+    import wx
+
     options = optwin.options
     ctrls = optwin.text_controls + optwin.spin_controls + \
         optwin.combo_controls
     for ctrl in ctrls:
         name = ctrl.GetName()
-        if (options.has_key(name)):
+        if (name in options):
             ctrl.SetValue(options[name])
 
 def OnCancel(event):
-    import sys
-
+    import wx
+            
     control = event.GetEventObject()
     optwin =  control.GetTopLevelParent()
 
@@ -1203,12 +1191,16 @@ def OnCancel(event):
     sys.exit()
 
 def OnSubmit(event):
+    import wx
+
     control = event.GetEventObject()
     optwin =  control.GetTopLevelParent()
 
     optwin.Destroy()
 
 def add_options_panel(panel, sizer, config, options, get_gui_options):
+    import wx
+    
     subpanel = wx.Panel(panel, -1)
 
     (title, fields) = get_gui_options(subpanel, config, options)
@@ -1232,6 +1224,8 @@ def add_options_panel(panel, sizer, config, options, get_gui_options):
     sizer.Add(subpanel, 0,  wx.ALL, border=5)
 
 def pbs_gui_options(subpanel, config, options):
+    import wx
+    
     title = "PBS Options"
     optwin  =  subpanel.GetTopLevelParent()
     config  = optwin.config
@@ -1296,6 +1290,8 @@ def pbs_gui_options(subpanel, config, options):
     return (title, fields)
 
 def handle_ctrl(event):
+    import wx
+    
     control = event.GetEventObject()
     optwin  = control.GetTopLevelParent()
     options = optwin.options
@@ -1310,6 +1306,8 @@ def handle_ctrl(event):
         optwin.options[name] = value
 
 def add_text_control(panel, name, label, width=None):
+    import wx
+    
     optwin  = panel.GetTopLevelParent()
     options = optwin.options
     config  = optwin.config
@@ -1332,6 +1330,8 @@ def add_text_control(panel, name, label, width=None):
     return ([label, ctrl])
 
 def add_combo_control(panel, name, label, choices, width=None):
+    import wx
+    
     optwin  = panel.GetTopLevelParent()
     options = optwin.options
     config  = optwin.config
@@ -1355,6 +1355,8 @@ def add_combo_control(panel, name, label, choices, width=None):
     return ([label, ctrl])
 
 def add_spin_control(panel, name, label):
+    import wx
+    
     optwin  = panel.GetTopLevelParent()
     options = optwin.options
     config  = optwin.config
@@ -1370,6 +1372,8 @@ def add_spin_control(panel, name, label):
     return ([label, ctrl])
 
 def add_checkbox_control(panel, name, label):
+    import wx
+    
     optwin  = panel.GetTopLevelParent()
     options = optwin.options
     config  = optwin.config
@@ -1394,8 +1398,8 @@ def get_validators():
 
 
 def validate_options(config, options):
-    for name, validator in config["validators"].iteritems():
-        if options.has_key(name):
+    for name, validator in config["validators"].items():
+        if name in options:
             value = options[name]
         else:
             value = None
@@ -1403,7 +1407,6 @@ def validate_options(config, options):
 
 def validate_host(config, options, value):
     if (value not in config["hosts"].keys()):
-        import sys
         print("Bad host name! (%s)" % (value))
         print("Host name must be one of:")
         for host in config["hosts"].keys():
@@ -1415,7 +1418,6 @@ def validate_host(config, options, value):
 ### XML based Wrappers
 
 def get_hosts_config_XML(hostsconf):
-    import os, sys
     from xml.dom import minidom
 
     # Read host config from XML file
@@ -1445,7 +1447,7 @@ def get_hosts_config_XML(hostsconf):
                 host["name"] = name
                 hosts[name] = host
             else:
-                print "Host must have a name!"
+                print("Host must have a name!")
                 sys.exit(1)
 
         # Sendmail
@@ -1474,7 +1476,7 @@ def get_hosts_config_XML(hostsconf):
                 if name:
                     queue["name"] = name
                 else:
-                    print "Queue must have a name!"
+                    print("Queue must have a name!")
                     sys.exit(1)
                 queues.append(queue)
 
@@ -1507,7 +1509,6 @@ def get_hosts_config_XML(hostsconf):
     return hosts
 
 def add_config_XML(config, configfileXML):
-    import os, sys
     from xml.dom import minidom
 
     conf = os.path.dirname(__file__) + "/config/" + configfileXML
@@ -1603,12 +1604,10 @@ def get_wrapper_cmdline_XML(config, options):
         # Substitute the args in the command
         return command % (args)
     else:
-        print "Command not found!"
+        print("Command not found!")
         sys.exit(1)
 
 def add_wrapper_options_XML(parser, config):
-    import optparse
-
     wrapper = config["wrapper"]
     if "arguments" in wrapper.keys():
         arguments = wrapper["arguments"]
@@ -1681,7 +1680,7 @@ def get_text_required_XML(element, name, parent_name):
 
     text = get_text_XML(element, name)
     if not text:
-        print name + " not defined for " + parent_name + "!"
+        print(name + " not defined for " + parent_name + "!")
         sys.exit(1)
 
     return text
@@ -1697,7 +1696,6 @@ def get_boolean_XML(element, name):
 ### User defaults
 
 def read_merge_user_defaults(options, seen=None):
-    import os
     from xml.dom import minidom
 
     optsfile = os.path.expanduser('~/.eSaran/defaults.xml')
@@ -1756,8 +1754,6 @@ def add_validators_dict(config):
     config['validators']['exe'] = needs_exe
 
 def error_exit(message):
-    import sys
-
     sys.stderr.write(message)
     sys.exit(1)
 
