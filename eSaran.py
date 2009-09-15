@@ -27,6 +27,7 @@
 # THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Contributors: Chris Want (University of Alberta),
+#               Bart Hazes (University of Alberta)
 #
 """
 Helper module for executing PBS jobs remotely.
