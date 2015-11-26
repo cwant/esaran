@@ -1,0 +1,283 @@
+
+
+# Motivation #
+
+This part of the **eSaran** API is lower level in nature, and is intended to handle the needs of users who's requirements go beyond the functionality provide by the callback or XML -based wrapper APIs.
+
+# An Example #
+
+The following example creates a wrapper for a program called **`cure_cancer`**. The **`cure_cancer`** program takes two arguemts, **`-L`** and **`-T`**, and the wrapper passes these arguments to the program.
+
+```
+#!/usr/bin/env python
+
+def main():
+
+    import os, optparse, eSaran
+
+    # Load information about hosts, and set title
+    config = eSaran.get_config(wrapper_title = "Cure Cancer")
+
+    if (os.getenv("SSH_AGENT_RESPAWN")):
+        # We have been respawned (in an ssh-agent), load
+        # pickled options from the parent that spawned us
+        options = eSaran.load_wrapper_args()
+    else:
+
+        # Get an option parser
+        parser = optparse.OptionParser()
+
+        # --- Add Custom Options --------------
+        add_custom_options(parser, config)
+
+        # Add standard options
+        eSaran.add_account_options(parser)
+        eSaran.add_file_transfer_options(parser)
+        eSaran.add_pbs_options(parser)
+        eSaran.add_misc_options(parser)
+        eSaran.add_execution_options(parser)
+        parser.seen = dict()
+
+        # Parse and convert options to a dict
+        (options_obj, args) = parser.parse_args()
+        options = eSaran.obj_to_dict(options_obj)
+
+        # Load options from user defaults file and generate
+        # account defaults if needed
+        seen    = parser.seen
+        eSaran.read_merge_user_defaults(options, seen)
+        eSaran.make_account_defaults(config, options, seen)
+
+        # If saved options have been loaded from a file on the
+        # commandline, merge them with the other commandline options
+        if (options["load_options"]):
+            eSaran.load_merge_options(options, options["load_options"], seen)
+
+        # If the gui has been requested, display it
+        if (options["gui"]):
+            eSaran.make_gui(config, options, add_custom_gui_options)
+
+        #--- Do option processing, validation ---
+        if (options["level"] > 8):
+            options["ncpus"] = 4
+
+        #--- Set the commandline to run ---------
+        options["exe"] = "cure_cancer -L %s -T %s" % (options["level"],
+                                                      options["time"])
+        
+    # Check ssh setup, respawn in an ssh-agent if required
+    eSaran.set_up_ssh(config, options)
+
+    # submit the job
+    eSaran.submit_job(config, options)
+
+def add_custom_options(parser, config):
+    import optparse, eSaran
+    
+    #-- Add my custom options -----------------------
+    g = optparse.OptionGroup(parser, "Options for cure_cancer")
+        
+    # Level
+    g.add_option("-L", "--level", action="callback",
+                 callback=eSaran.store_seen, type="string",
+                 dest="level", metavar="DOSAGE",
+                 help="The dosage required, in millilitres")
+
+    # Time
+    g.add_option("-T", "--time", action="callback",
+                 callback=eSaran.store_seen, type="string",
+                 dest="time", metavar="SECONDS",
+                 default="20s",
+                 help="The recovery period, in seconds (default: %default)")
+
+    parser.add_option_group(g)
+
+
+def add_custom_gui_options(subpanel, config, options):
+    import eSaran
+
+    #-- Add my custom GUI options -----------------------
+
+    title = "cure_cancer options"
+    fields = []
+
+    # Level
+    fields.append(eSaran.add_text_control(subpanel,
+                                          "level",
+                                          "Dosage level:",
+                                          width=30))
+
+    # Time
+    fields.append(eSaran.add_text_control(subpanel,
+                                          "time",
+                                          "Recovery time in seconds:",
+                                          width=30))
+
+    return (title, fields)
+
+main()
+```
+
+
+---
+
+
+We will now go through some of the API calls used to create this wrapper.
+
+# eSaran API calls #
+
+## Getting the configuration ##
+
+### **`eSaran.get_config( ... )`** ###
+
+The function **'eSaran.get\_config()`** provides a consistent (albeit complicated) interface for configuring wrappers. Internally, it is used in all three types of wrappers provided by **eSaran** (callback-based, XML-based, and procedural-based wrappers), but in very different ways.
+
+The main purpose of this call is to return the **`config`** dict. This dict contains different types of data depending on how **`eSaran.get_config()`** is called. At a bare minimum, **`config`** will contain information about the hosts that **eSaran** will connect to to submit compute jobs (such information is contained as another dictionary in **`config["hosts"]`**).
+
+The function has six optional keyword arguments, four of which are callback functions. Most of these arguments aren't of interest here, and are described in more detail in the documentation of the **`eSaran.do_wrapper()`** function arguments on the [eSaranCallbackWrappers](eSaranCallbackWrappers.md) page.
+
+The arguments for **`eSaran.get_config()`**, with default values, are:
+
+  * **`get_wrapper_cmdline(config, options)=None`**. This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do\_wrapper()](eSaranCallbackWrappers#do_wrapper().md)
+  * **`wrapper_title=""`**. This is the only argument we use in the example script above. It sets the title of the window when the user uses the wrapper with a GUI.
+  * **`add_wrapper_options(parser, config)=None`**  This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do\_wrapper()](eSaranCallbackWrappers#do_wrapper().md)
+  * **`wrapper_gui_options(subpanel, config, options)=None`**  This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do\_wrapper()](eSaranCallbackWrappers#do_wrapper().md)
+  * **`add_wrapper_validators(config)=None`** This callback function is used by the callback-based wrappers and is described in the section [eSaranCallbackWrappers#do\_wrapper()](eSaranCallbackWrappers#do_wrapper().md)
+  * **`configfileXML=""`** This is a string pointing to an XML config file. This option is used with the XML-based wrappers.
+
+
+---
+
+
+## Adding command line options ##
+
+**eSaran** uses the standard python **Optparse** module to handle command line arguments, and many of the API functions use an **Optparse** parser object as an argument. **eSaran** has a number of API functions that take care of common command line arguments, and many of these are documented on the page eSaranCommonOptions.
+The typical process for dealing with command line options is to create an **Optparse** parser object, add options to it, then run the parser's **`parse()`** method. The **`parse()`** method will return an object that has the parsed options as attributes, and a list of positional arguments. It is often convenient to convert the option object into a python dictionary -- the **`eSaran.obj_to_dict()`** function can be used for this purpose.
+
+### **`eSaran.add_account_options(parser)`** ###
+
+See [eSaranCommonOptions#Account\_Options](eSaranCommonOptions#Account_Options.md).
+
+### **`eSaran.add_file_transfer_options(parser)`** ###
+
+See [eSaranCommonOptions#File\_Transfer\_Options](eSaranCommonOptions#File_Transfer_Options.md).
+
+### **`eSaran.add_pbs_options(parser)`** ###
+
+See [eSaranCommonOptions#PBS\_Options](eSaranCommonOptions#PBS_Options.md).
+
+### **`eSaran.add_misc_options(parser)`** ###
+
+See [eSaranCommonOptions#Miscellaneous\_Options](eSaranCommonOptions#Miscellaneous_Options.md).
+
+### **`eSaran.add_execution_options(parser)`** ###
+
+See [eSaranCommonOptions#Execution\_Options](eSaranCommonOptions#Execution_Options.md).
+
+
+---
+
+
+### **`eSaran.obj_to_dict(options_obj)`** ###
+
+Takes a python object as an argument (such as the one returned by the **Optparse** parser) and returns a Python dictionary, converting the object attribute names to dictionary keys (e.g., `*options_obj->host*` in the input object becomes **`options["host"]`** in the output dictionary).
+
+
+---
+
+
+In the example, **eSaran** creates a dictionary for the parse called **`parser.seen`** to keep track of which options are actually processed by the parser. In order to do this, whenever an option is added to the parser (or to a group within a parser) via an **`add_option()`** call, a callback is passed to the **`add_option()`** call that records that the option was "seen" by the parser. So for example, if the wrapper was called using the -T flag, then during command line parsing the dictionary entry **`parser.seen["time"]`** would be created and set to **`True`**. There are two callbacks that can be used to record whether a command line option was seen on the commandline.
+
+### **`eSaran.store_seen(option, opt_str, value, parser)`** ###
+
+On parsing, this callback stores the value after the command line flag, then records the value as seen in **`parser.seen`**.
+
+### **`eSaran.store_true_seen(option, opt_str, value, parser)`** ###
+
+On parsing, this callback sets the value of options->dest to **`True`**, then records the value as seen in **`parser.seen`**.
+
+
+---
+
+
+The dictionary **`parser.seen`** is important when merging stored options from file with the values of options recieved on the command line. It is felt that options that originate from the command line should take priority over those in user default files, or in other files saved to disk. There are a few functions that take care of these details.
+
+### **`eSaran.read_merge_user_defaults(options, seen=None)`** ###
+
+The function takes the values of options stored in the user defaults file (usually stored in the XML file .eSaran.xml in the user's home directory) and merges then with the dictionary called **`options`**. The optional **`seen`** dictionary can flag members of the **`options`** dictionary as not to be overwritten.
+
+### **`eSaran.read_merge_options(options, file, seen=None)`** ###
+
+This function loads options from the file with file name **`file`** and merges them with the values in the dictionary **`options`**. The options in the file are ones that have been saved already by using the function **`eSaran.save_options()`** and contain data that has been output from the standard Python **Pickle** module (instead of being an XML file). The optional **`seen`** dictionary can flag members of the **`options`** dictionary as not to be overwritten.
+
+### **`eSaran.make_account_defaults(config, options, seen)`** ###
+
+This function will try to fill any missing holes in the account information supplied by the user. It will try to use values from the **hosts.xml** file, along with values from the user's environment to construct reasonable values for **`options["user"]`**, `*options["host"]`**,**`options["dir"]`**, and `*options["email"]`**.
+
+
+---
+
+
+## Adding GUI options ##
+
+**eSaran** uses the wxPython library to provide optional GUI support (wxPython is not required to run eSaran if GUI support is not desired). wxPython is a rather complicated library, so eSaran tries to simplify the creation of GUI elements through callbacks and helper functions. Generally, GUI option parsing should occur after the command line option parsing is done (so that gui elements can be popilated with values retreived from the command line).
+
+### **`eSaran.make_gui(config, options, add_custom_options)`** ###
+### **`eSaran.add_text_control(panel, name, label, width)`** ###
+### **`eSaran.add_combo_control(panel, name, label, choices, width)`** ###
+### **`eSaran.add_spin_control(panel, name, label)`** ###
+### **`eSaran.add_checkbox_control(panel, name, label)`** ###
+
+
+---
+
+
+## Processing options ##
+
+
+---
+
+
+## Constructing a commandline ##
+
+
+---
+
+
+## Setting up SSH ##
+
+The typical **eSaran** job will need to use at least three ssh connections to successfully submit a job (one to create a remote working directory, one to transfer files, and the last one to actually submit the job for execution). It is recommended that users set up a ssh key with an ssh-agent to avoid having to type a password for each connection. **eSaran** tries to make this easier by detecting whether an ssh-agent is running, and if not it will respawn itself in an agent and attempt to load the user's default ssh keys (**eSaran** also has a **-k** option for specifying a particular ssh keys).
+
+When **eSaran** respawns itself it sets an environment variable called **SSH\_AGENT\_RESPAWN** and it sends the command line options to the child process' **`stdin`** file stream.
+
+As in the example above, the typical workflow for dealing with ssh connections is as follows:
+
+  * Test if the script has been respawned by checking the **SSH\_AGENT\_RESPAWN** environment variable;
+  * If it was respawned, the child process will load the **`options`** dict from the parent (and will not process command line options). This is the purpose of the **`eSaran.load_wrapper_args()`** call;
+  * If the script has not been respawned, process the command line options as usual;
+  * Test if ssh works -- if it doesn't, respawn the script and send the **`options`** dict to the child process, then exit. This is taken care of by the **`eSaran.set_up_ssh()`** call;
+  * If ssh does work, finally submit the job.
+
+We discuss some some of the functions in more detail below.
+
+### **`eSaran.set_up_ssh(config, options)`** ###
+
+This function tests whether the ssh-agent is running, and if not it respawns the script inside an ssh-agent and exits. Once it is sure that an ssh-agent is running, it tests whether any ssh keys are loaded into the agent, and if not it tries to load them. If it fails to load an ssh key, the user will be forced to enter their password several times during the execution of the script (the script provides some information to the user about using ssh keys).
+
+When the wrapper respawns itself, it sends the contents of the **`options`** dict to the child process. It uses the python **Pickle** module to serialize the data, then sends that data to the child's **`stdin`** stream.
+
+### **`eSaran.load_wrapper_args()`** ###
+
+This function loads the **`options`** dict from the parent process into the child process. It reads the data from **`stdin`** then uses the python **Pickle** module to decode it into a dictionary. The function returns the decoded dictionary.
+
+
+---
+
+
+## Submitting the job ##
+
+
+---
+
+
+# Another Example #

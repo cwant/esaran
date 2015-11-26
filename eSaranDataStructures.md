@@ -1,0 +1,36 @@
+# eSaran Data Structures #
+
+The two most important data structures in eSaran are the dictionaries `config` and `options`.
+
+# `config` #
+
+This dictionary contains data and callbacks that are important for running a wrapper. This callback is returned by the function `get_config()`. We describe some of it's fields below.
+
+## `config["hosts"]` ##
+
+This is a dict (the hostname is the key) that describes the hosts the can be used for the wrapper. These hosts are loaded from the file `config/hosts.xml`. Each hosts has several fields that describe it:
+  * `host["name"]`: The host name, which is also used as the key for indexing his host in `config["hosts"]`;
+  * `host["mail_host"]`: The address of the host that will be capable of sending mail. This is used mostly for clusters that don't allow sending mail from backnodes (so in the case, `host["mail_host"]` would be the head node). This attribute is not present for hosts that are capable of sending mail themselves;
+  * `host["email_base"]`: If the user hasn't explicitly provided an email address to the wrapper, the wrapper will try to guess an email for the user of the form `username@host["email_base"]`
+  * `host["sendmail"]`: The location of the sendmail binary on the host;
+  * `host["tar"]`: The location of the tar binary on the host. This should be an implementation of tar that supports Zlib compression (i.e., supports the -z flag);
+  * `host["scratch_base"]`: This describes where the base of the host's scratch space is. If the user hasn't explicitly chosen a directory to do work in, the wrapper will use `host["scratch_base"]` to try to guess a reasonable place to create a work directory;
+  * `host["pbs_options"]`: This is a dictionary holding the configuration of PBS on the system. It has the following attributes:
+    * `pbs["queues"]`: a list holding dictionaries describing the queues on the system. So far the only attribute defined for a queue is "name" holding the queue name.
+    * `pbs["mem_specs"]`: a list of strings that describe the possible ways to specify memory requirements for the host. This is needed because for some PBS implementations, a variable called "pvmem" is used, but for other systems the variable is called "mem";
+    * `pbs["cpu_specs"]`: a list of strings that describe the possible ways to specify CPU requirements for the host. This is needed because for some PBS implementations, this is specified using "nodes" and "ppn", on others it is specified using "ncpus". and on yet others it is specified using a variable called "procs". For some systems, CPU requirements can be done in more than one way.
+
+If there is a host in the XML file that has type "defaults", then any host that is missing an attribute will have the attribute set from the value from the default host.
+
+## `config["validators"]` ##
+
+This is a dictionary of callback functions that validate command line options. The dictionary is indexed by the name of the command line option (as stored in the `options` dict, described below) and the callback function has the form `validator(config, options, value)`. See for example the function `validate_hosts()`.
+
+## `config["webserver_site"]`, `config["webserver_address"]`, and `config["webserver_subject"]` ##
+
+Some configuration details of a web server to hold large data files. This feature will probably be deprecated.
+
+## `config["wrapper_title"]`, `config["get_wrapper_cmdline"]`, `config["add_wrapper_options"]`, and `config["wrapper_gui_options"]` ##
+
+These are strings and callbacks used by the 'do\_wrapper()' function. See the section on
+[Callback-based wrappers](eSaranCallbackWrappers.md).
